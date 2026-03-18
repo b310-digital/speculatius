@@ -1,179 +1,98 @@
 # Speculatius: App Exploration
 
-Use the Playwright MCP to systematically explore the running application and produce
+Use Playwright MCP to systematically explore the running application and produce
 behavioral spec files describing what the app actually does.
-
-Speculatius creates a reflection of your app's behavior as OpenSpec-compatible specs —
-like a cookie imprint from a mold, capturing the shape of what's actually there.
 
 ## Input
 
-The user will provide:
-- **APP_URL**: The URL to explore (e.g., http://localhost:3000 or a hostname like app:4200).
-  If not provided, check `.speculatius/config.yaml` for a default `app_url`.
-  If neither exists, ask the user.
+- **APP_URL**: URL to explore. Falls back to `.speculatius/config.yaml` `app_url`. Ask if neither exists.
 - **SCOPE** (optional): Specific routes or areas to focus on (e.g., "/settings/*")
 
-Before starting, verify that Playwright MCP is available by checking
-`.speculatius/config.yaml` for the integration method. If the config doesn't
-exist, tell the user to run `/speculatius:init` first.
+Verify `.speculatius/config.yaml` exists — if not, tell the user to run `/speculatius:init`.
 
-### URL Resolution
+**URL Resolution**: If APP_URL contains a hostname (not IP), resolve with
+`getent hosts <hostname>` and use the IP for Playwright navigation. Always resolve
+fresh — container IPs change between restarts.
 
-If the APP_URL contains a hostname (not an IP), resolve it at runtime using
-`getent hosts <hostname>` and use the resolved IP for Playwright navigation.
-This is necessary because Playwright's browser (especially in Docker/CDP setups)
-may not resolve container hostnames. Always resolve fresh — never rely on cached
-IPs from config or prior runs.
+**Authentication**: If `.speculatius/config.yaml` has an `auth` block with
+credentials, auto-login when encountering auth-gated pages:
+1. Navigate to `auth.login_url` (default: look for a login link/form on the current page)
+2. Fill `auth.username_field` with `auth.username` and `auth.password_field` with `auth.password`
+3. Submit the form
+4. Verify success via `auth.success_indicator` (URL redirect or element presence)
+5. Continue exploration — cookies persist across navigation
+
+If auto-login fails, fall back to asking the user to log in manually.
 
 ## Exploration Strategy
 
 ### Phase 1: Sitemap Discovery
-1. **Source-code route scan**: Before touching the browser, search the codebase for
-   route definitions (e.g., Angular router configs, Next.js pages/app directory,
-   React Router routes, Express/NestJS route decorators). Record all defined routes
-   as a baseline — this catches routes not reachable via UI navigation (admin pages,
-   error pages, deep-linked states behind feature flags).
-2. Navigate to the app's root URL (or scoped URL if provided)
-3. Read the accessibility tree to identify all navigation elements
-4. Follow every navigation link to map all reachable routes
-5. Cross-reference browser-discovered routes against source-code routes. Flag any
-   source-defined routes that were not reachable via navigation.
-6. Record each route's title, auth requirements, and key components
-7. Write the sitemap file (see Output section)
+1. Search codebase for route definitions (router configs, route decorators) as a baseline
+2. Navigate to root URL, read accessibility tree, follow all navigation links
+3. Cross-reference browser routes against source-code routes — flag unreachable ones
+4. Record each route's title, auth requirements, and key components
+5. Write `.speculatius/sitemap.md`
 
 ### Phase 2: Page-by-Page Exploration
-For each route discovered in Phase 1:
-1. Navigate to the page
-2. Take an accessibility snapshot
-3. **Activate the page's primary entity before cataloging controls.** Many UIs
-   disable toolbar/action buttons until something is selected (e.g., select a node
-   in a mind map, select a row in a table, focus a form). Click/select the primary
-   interactive element first, then re-snapshot to see the fully active UI state.
-4. Identify all interactive elements (forms, buttons, links, toggles, tabs)
-5. Document:
-   - Page purpose (inferred from headings and content)
-   - Key UI components present
-   - Available user actions (in the **active** state, not the empty/disabled state)
-   - Data displayed (tables, lists, cards)
-   - Conditional UI (empty states, loading indicators, error states)
-   - **Observed default values** (toggle states, slider min/max/step/default,
-     dropdown defaults, placeholder text). Pin exact values — they are useful
-     for regression detection.
+For each route:
+1. Navigate and take an accessibility snapshot
+2. **Activate the primary entity first** (select a node, focus a form) — many UIs
+   disable controls until something is selected. Re-snapshot after activation.
+3. Document: page purpose, UI components, available actions (in active state),
+   data displayed, conditional UI, **observed default values** (pin exact values
+   for regression detection)
 
 ### Phase 3: Flow Exploration
-
-For each major interactive flow (forms, wizards, CRUD operations, toggles),
-run through this checklist:
-
-- [ ] **Happy path**: Fill all fields with valid data, submit. Record success feedback
-      (toast, redirect, inline message, state change).
-- [ ] **Empty submission**: Submit form with no input. Record which fields show
-      validation errors and the exact error messages.
-- [ ] **Invalid data**: Submit with at least one invalid value per field type
-      (e.g., malformed email, negative number, too-long string). Record validation
-      messages.
-- [ ] **Toggle states**: For each toggle/switch, flip it and record what changes
-      (URL, UI state, request). Flip it back and verify it reverts.
-- [ ] **Toggle effects**: After toggling a setting, navigate to the area it
-      affects and document the **observable outcome** (e.g., after enabling
-      "Automatic branch colors", create a mind map with multiple branches and
-      document the color behavior — distinct first-level colors, child
-      inheritance, etc.). Don't just document the toggle exists; document what
-      it does to the rest of the app.
-- [ ] **Cancel/close**: If the flow has a cancel or close action, use it and verify
-      no side effects occurred.
-- [ ] **Guard rails**: Note auth redirects, permission-denied screens, rate limit
-      responses, or confirmation dialogs that appear.
+For each interactive flow (forms, CRUD, toggles):
+- [ ] **Happy path**: valid data → record success feedback
+- [ ] **Empty submission**: record validation errors and exact messages
+- [ ] **Invalid data**: one invalid value per field type → record messages
+- [ ] **Toggle states**: flip, record changes, flip back, verify revert
+- [ ] **Toggle effects**: navigate to the affected area and document the **observable
+      outcome** — don't just document the toggle exists, document what it does
+- [ ] **Cancel/close**: verify no side effects
+- [ ] **Guard rails**: auth redirects, permission-denied, rate limits, confirmations
 
 ### Phase 4: Edge Behavior
-
-Run through this checklist once per page:
-
-- [ ] **Modals/dialogs**: Click every button that opens a modal. Document title,
-      content, actions, and dismiss behavior.
-- [ ] **Dropdown menus**: Click every menu trigger. Document all menu items.
-- [ ] **Tooltips/popovers**: Hover over icon-only buttons or info icons. Record
-      tooltip text.
-- [ ] **Keyboard shortcuts**: If a shortcuts dialog or help exists, open it and
-      record all shortcuts. Test at least 3 shortcuts to verify they work.
-- [ ] **Toast/notification patterns**: After completing actions (create, delete,
-      save), note toast position, message text, and auto-dismiss timing.
-- [ ] **Empty states**: Navigate to list/table views with no data. Record the
-      empty state message or illustration.
+Once per page:
+- [ ] **Modals/dialogs**: open every one, document title/content/actions/dismiss
+- [ ] **Dropdown menus**: open every trigger, document all items
+- [ ] **Tooltips**: hover icon-only buttons, record text
+- [ ] **Keyboard shortcuts**: find and record all, test at least 3
+- [ ] **Toasts**: note position, message text, auto-dismiss timing
+- [ ] **Empty states**: record message/illustration
 
 ## Output
 
-You must create TWO types of artifacts:
+### Artifact 1: `.speculatius/sitemap.md`
+- Header: date, app URL, scope
+- Routes Discovered table: Route, Page Title, Auth Required, Key Components
+- Navigation Structure: top nav, sidebar, footer, dropdowns
+- Routes NOT Explored table: Route, Reason
+- Unmapped OpenSpec Specs: spec folders with no corresponding explored capability
 
-### Artifact 1: Sitemap — `.speculatius/sitemap.md`
+### Artifact 2: `.speculatius/specs/{capability}/spec.md`
+One file per logical capability. Name folders to match `openspec/specs/` where possible.
 
-A navigation map documenting every route the agent discovered. This serves as a
-coverage record so we know what was explored and what was missed.
+Format:
+```
+# {Capability Name}
+Brief description.
 
-Structure it as follows:
+## Requirements
 
-- A header with the date, app URL, and scope
-- A "Routes Discovered" table with columns: Route, Page Title, Auth Required, Key Components
-- A "Navigation Structure" section listing top nav, sidebar, footer, dropdowns
-- A "Routes NOT Explored" table with columns: Route, Reason (e.g., "Auth-gated",
-  "External redirect", "Behind feature flag")
-- An "Unmapped OpenSpec Specs" section: if `openspec/specs/` exists, list any spec
-  folders that have no corresponding Speculatius capability spec. This tells the
-  diff step which gaps are expected (e.g., backend-only capabilities with no UI
-  surface) vs. missed during exploration.
+### Requirement: {Name}
+The system SHALL ...
 
-### Artifact 2: Capability Specs — `.speculatius/specs/{capability}/spec.md`
-
-One file per logical capability (auth, dashboard, settings, etc.). Group related
-pages and flows into capabilities. Name the capability folders to match existing
-`openspec/specs/` folder names where possible — this makes the diff step much cleaner.
-
-Each spec file must use OpenSpec-compatible format:
-
-- Top-level heading: capability name
-- Brief description of what this capability does from the user's perspective
-- `## Requirements` section containing one or more requirements
-- Each requirement as `### Requirement: {Name}` followed by a SHALL statement
-- Each requirement has an `#### Scenarios` section with Given/When/Then entries
-
-Example of a well-formed spec:
-
-    # Authentication
-
-    User authentication including login, registration, and session management.
-
-    ## Requirements
-
-    ### Requirement: User Login
-    The system SHALL allow users to authenticate via email and password.
-
-    #### Scenarios
-    - **Successful login**: Given a registered user, when they enter valid credentials
-      and click "Sign In", then they are redirected to the dashboard.
-    - **Invalid credentials**: Given an unregistered email, when the user submits the
-      login form, then an error message "Invalid email or password" is displayed.
-    - **Empty form submission**: Given an empty login form, when the user clicks
-      "Sign In", then inline validation errors appear on both fields.
-
-    ### Requirement: OAuth Login
-    The system SHALL provide Google and GitHub OAuth login options.
-
-    #### Scenarios
-    - **OAuth buttons present**: Given the login page, when it loads, then "Continue
-      with Google" and "Continue with GitHub" buttons are visible.
+#### Scenarios
+- **{scenario}**: Given ..., when ..., then ...
+```
 
 ## Rules
-- Focus on OBSERVABLE behavior only — no implementation guesses
-- Use three confidence levels for scenarios:
-  - **SHALL**: Behavior was directly observed and confirmed
-  - **SHOULD**: Behavior appears intended but was observed as incomplete or inconsistent
-  - **[NOT TESTED]**: Behavior is expected to exist (e.g., from UI affordances) but was
-    not actually exercised during exploration. This is distinct from SHOULD — it means
-    "I didn't verify this", not "I saw it behaving oddly".
-- If auth-gated pages are encountered, STOP and ask the user to log in manually
-  (the Playwright MCP browser window is visible — cookies persist after login)
-- If a flow errors out, document the error as-is — that's valuable data
-- Don't explore third-party embeds (analytics, chat widgets, external iframes)
-- Name capability folders to match existing `openspec/specs/` folder names where possible
-- Always create the sitemap FIRST before writing capability specs
+- Observable behavior only — no implementation guesses
+- Confidence levels: **SHALL** (confirmed), **SHOULD** (inconsistent), **[NOT TESTED]** (not exercised)
+- Auth-gated pages: auto-login if credentials configured, otherwise STOP and ask user
+- Document errors as-is — they are valuable data
+- Don't explore third-party embeds
+- Match capability folder names to `openspec/specs/` where possible
+- Create sitemap FIRST, then capability specs

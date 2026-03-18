@@ -1,185 +1,86 @@
 # Speculatius: Init
 
-Set up Speculatius in the current project. This command configures the cache
-directory, gitignore, and Playwright MCP integration.
-
-Run this once per project before using `/speculatius:explore`.
+Set up Speculatius in the current project. Run once before `/speculatius:explore`.
 
 ## Process
 
-### Step 1: Create `.speculatius/` Directory
-
-Create the `.speculatius/` directory if it doesn't exist:
+### Step 1: Create `.speculatius/` directory
 
 ```
 .speculatius/
   specs/
 ```
 
-### Step 2: Add to `.gitignore`
+### Step 2: Update `.gitignore`
 
-Check if `.gitignore` exists in the project root.
+Append if not already present:
 
-- If it exists, check whether `.speculatius/` is already listed.
-  - If not listed, append the following block at the end:
+    # Speculatius (regenerable)
+    .speculatius/
 
-        # Speculatius - behavioral spec exploration output (regenerable)
-        .speculatius/
+    # Playwright MCP console logs (regenerable)
+    .playwright-mcp/
 
-  - If already listed, skip and confirm it's there.
-- If `.gitignore` doesn't exist, create it with:
+### Step 3: Configure Playwright MCP
 
-        # Speculatius - behavioral spec exploration output (regenerable)
-        .speculatius/
+Check for existing config in: `.mcp.json`, `.claude/settings.json`,
+`~/.claude.json`, `.cursor/mcp.json`, `.vscode/settings.json`.
 
-Also check whether `.playwright-mcp/` (the Playwright MCP console log output
-directory) is gitignored. If not, append:
+**If found**: confirm with the user.
 
-        # Playwright MCP console logs (regenerable)
-        .playwright-mcp/
+**If not found**: ask the user to choose:
 
-Tell the user what you did.
+1. **Claude Code** — run `claude mcp add playwright -- npx -y @playwright/mcp@latest`
+2. **Cursor** — create `.cursor/mcp.json` with playwright server entry
+3. **HTTP/SSE** — ask for the URL
+4. **Manual** — show the standard config:
+   ```json
+   { "mcpServers": { "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@latest"] } } }
+   ```
 
-### Step 3: Detect or Ask About Playwright MCP
+### Step 4: Write `.speculatius/config.yaml`
 
-Check if Playwright MCP is already configured by looking for these indicators:
+```yaml
+playwright:
+  integration: {claude-code|cursor|vscode|http|manual}
+  url: null  # only for http integration
+app_url: null
+auth: null  # or credentials block — see below
+```
 
-1. **Claude Code**: Check `.claude/settings.json` or `~/.claude.json` for an MCP
-   entry containing `playwright`
-2. **Cursor**: Check `.cursor/mcp.json` for a `playwright` server entry
-3. **VS Code**: Check `.vscode/settings.json` for MCP configuration with `playwright`
-4. **Project-level**: Check `.mcp.json` or `mcp.json` in the project root
+Ask the user for a default app URL. Store as hostname:port (not IP) —
+the explore command resolves at runtime.
 
-If found, confirm the detected configuration with the user:
+Ask if the app requires authentication for exploration:
 
-    I found Playwright MCP configured via {tool}:
-    - Command: npx @playwright/mcp@latest
-    - Mode: {stdio/sse}
-    
-    Is this correct? (yes / let me reconfigure)
+    Does the app require login for exploration? (yes/no)
 
-If NOT found, ask the user how they want to integrate Playwright MCP. Present
-these options:
+If yes, ask for test credentials and add to config:
 
-    Playwright MCP is not configured yet. How would you like to set it up?
-    
-    1. Claude Code (recommended) — I'll run `claude mcp add` for you
-    2. Cursor — I'll create/update .cursor/mcp.json
-    3. Already running as HTTP/SSE server — I'll just need the URL
-    4. I'll configure it myself — just tell me what config to use
+```yaml
+auth:
+  login_url: /login          # route with login form
+  username_field: email       # form field name/label for username
+  password_field: password    # form field name/label for password
+  username: test_user
+  password: testesttest
+  success_indicator: /dashboard  # URL or element that confirms login succeeded
+```
 
-Based on their choice:
+All fields are optional except `username` and `password`. The explore command
+will auto-fill and submit the login form when it encounters auth-gated pages.
 
-**Option 1 — Claude Code:**
+### Step 5: Update OpenSpec config (if present)
 
-Run the following command:
-
-    claude mcp add playwright -- npx -y @playwright/mcp@latest
-
-Confirm success. Note: this persists in `~/.claude.json` for the current project
-directory.
-
-**Option 2 — Cursor:**
-
-Create or update `.cursor/mcp.json`:
-
-    {
-      "mcpServers": {
-        "playwright": {
-          "command": "npx",
-          "args": ["-y", "@playwright/mcp@latest"]
-        }
-      }
-    }
-
-**Option 3 — HTTP/SSE server:**
-
-Ask the user for the URL (e.g., `http://localhost:8931`). Record it in the
-config file (see Step 4).
-
-**Option 4 — Manual:**
-
-Show the user the standard config they'll need:
-
-    Add this to your MCP client configuration:
-    
-    {
-      "mcpServers": {
-        "playwright": {
-          "command": "npx",
-          "args": ["-y", "@playwright/mcp@latest"]
-        }
-      }
-    }
-    
-    For Claude Code, run:
-      claude mcp add playwright -- npx -y @playwright/mcp@latest
-
-Then ask if the user wants to use the **official Playwright MCP** (`@playwright/mcp`)
-or the **ExecuteAutomation variant** (`@executeautomation/playwright-mcp-server`).
-The official one is recommended — it uses accessibility snapshots (no screenshots
-needed). The EA variant adds screenshot and codegen features but is heavier.
-
-### Step 4: Write Speculatius Config
-
-Create `.speculatius/config.yaml` with the detected/selected configuration:
-
-    # Speculatius configuration
-    # Generated by /speculatius:init
-    
-    playwright:
-      integration: {claude-code|cursor|vscode|http|manual}
-      package: "@playwright/mcp"      # or "@executeautomation/playwright-mcp-server"
-      url: null                        # only if integration is "http"
-    
-    # Default app URL (can be overridden per /speculatius:explore invocation)
-    app_url: null
-
-Then ask the user:
-
-    Do you have a default app URL for exploration? (e.g., http://localhost:3000)
-    Leave blank to specify each time you run /speculatius:explore.
-
-If provided, write it into the config. **Store the URL as a hostname:port**
-(e.g., `localhost:3000` or `app:4200`), not as a resolved IP address. The explore
-command will resolve hostnames to IPs at runtime, since container/service IPs can
-change between restarts.
-
-### Step 5: Update OpenSpec Config (if present)
-
-If `openspec/config.yaml` exists, check whether it already mentions Speculatius.
-
-If not, ask the user:
-
-    I found openspec/config.yaml. Would you like me to add Speculatius context
-    so OpenSpec commands are aware of exploration data? (yes/no)
-
-If yes, append to the `context:` field (or create it):
-
-    Browser exploration: Playwright MCP available via Speculatius
-    Exploration output: .speculatius/ contains discovered specs from app exploration
-
-And append to the `rules.specs:` field (or create it):
-
-    - Cross-reference .speculatius/ when available to validate against observed behavior
+If `openspec/config.yaml` exists and doesn't mention Speculatius, ask to add:
+- To `context:`: `Browser exploration: Playwright MCP available via Speculatius` and
+  `Exploration output: .speculatius/ contains discovered specs from app exploration`
+- To `rules.specs:`: `Cross-reference .speculatius/ when available to validate against observed behavior`
 
 ### Step 6: Summary
 
-Print a summary of everything that was configured:
-
-    ✓ Created .speculatius/ directory
-    ✓ Added .speculatius/ to .gitignore
-    ✓ Added .playwright-mcp/ to .gitignore
-    ✓ Playwright MCP: configured via Claude Code (@playwright/mcp)
-    ✓ Default app URL: app:4200
-    ✓ OpenSpec config: updated with Speculatius context
-
-    You're ready to go. Run:
-      /speculatius:explore
+Print what was configured. Tell the user to run `/speculatius:explore`.
 
 ## Rules
-- Never overwrite existing configuration — always check first and ask
-- If Playwright MCP is already configured, don't reconfigure unless the user asks
-- If `.gitignore` already has `.speculatius/`, don't add a duplicate
-- If `openspec/config.yaml` already mentions Speculatius, skip the update
-- Be explicit about every file you create or modify
+- Never overwrite existing configuration — check first, ask if in doubt
+- Be explicit about every file created or modified
