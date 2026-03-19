@@ -3,9 +3,23 @@
 Compare explored specs (`.speculatius/specs/`) against OpenSpec specs (`openspec/specs/`)
 and produce a structured diff report.
 
+## Input
+
+- **--force** (optional): When set, delete the existing diff report before starting.
+  This performs a clean diff — no merging with or updating the previous report.
+
 ## Prerequisites
 - `.speculatius/specs/` must exist (run `/speculatius:explore` first)
 - `openspec/specs/` must exist
+
+### Force Mode
+
+When `--force` is passed:
+1. Delete `.speculatius/diff-report.md` if it exists
+2. Confirm deletion to the user (e.g., "Removed existing diff report")
+3. Proceed with a fresh diff — write the report from scratch
+
+Without `--force`, the existing report is overwritten in place (default behavior).
 
 ## Process
 

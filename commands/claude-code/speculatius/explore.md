@@ -7,8 +7,19 @@ behavioral spec files describing what the app actually does.
 
 - **APP_URL**: URL to explore. Falls back to `.speculatius/config.yaml` `app_url`. Ask if neither exists.
 - **SCOPE** (optional): Specific routes or areas to focus on (e.g., "/settings/*")
+- **--force** (optional): When set, delete all previously explored specs before starting.
+  This performs a clean exploration — no merging with existing specs.
 
 Verify `.speculatius/config.yaml` exists — if not, tell the user to run `/speculatius:init`.
+
+### Force Mode
+
+When `--force` is passed:
+1. Delete all files under `.speculatius/specs/` and `.speculatius/sitemap.md`
+2. Confirm deletion count to the user (e.g., "Removed 9 existing spec folders")
+3. Proceed with a fresh exploration — write all specs from scratch
+
+Without `--force`, existing spec files are preserved and updated in place (default behavior).
 
 **URL Resolution**: If APP_URL contains a hostname (not IP), resolve with
 `getent hosts <hostname>` and use the IP for Playwright navigation. Always resolve

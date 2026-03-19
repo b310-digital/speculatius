@@ -70,14 +70,7 @@ auth:
 All fields are optional except `username` and `password`. The explore command
 will auto-fill and submit the login form when it encounters auth-gated pages.
 
-### Step 5: Update OpenSpec config (if present)
-
-If `openspec/config.yaml` exists and doesn't mention Speculatius, ask to add:
-- To `context:`: `Browser exploration: Playwright MCP available via Speculatius` and
-  `Exploration output: .speculatius/ contains discovered specs from app exploration`
-- To `rules.specs:`: `Cross-reference .speculatius/ when available to validate against observed behavior`
-
-### Step 6: Summary
+### Step 5: Summary
 
 Print what was configured. Tell the user to run `/speculatius:explore`.
 
