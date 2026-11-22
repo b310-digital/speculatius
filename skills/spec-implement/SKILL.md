@@ -33,12 +33,12 @@ A selection from the [Zen of Python](https://peps.python.org/pep-0020/) by Tim P
 1. **Architecture.** A subagent drafts the architecture of the change (prompt below). Write the reply to the plan under `## Architecture draft`, replacing that section if it exists. If the draft contradicts the plan's Approach, stop and ask the user which one holds.
 2. **Tests first.** Write the tests from the plan's Test plan, end-to-end tests first, then unit tests; the plan decides the layer of each test. Each scenario test carries its scenario ID as a tag or in the test name (e.g. `@BILL-005`); the scenario text stays in the spec. Run them and confirm that each new test fails because the behavior is missing, not because of a typo or a broken import. Commit only the test files, as the first commit of the change. Do not push and do not skip commit hooks. A change with "No observable behavior change" has no new scenario tests: confirm the existing suite passes and say so instead.
 3. **Implement.** Write the code along the architecture draft until all tests pass. When a test fails, fix the implementation, not the test, unless the test itself has a bug. If you have to depart from the draft, update the draft in the plan and name the reason.
-4. **Review** in a fresh context (below). Do not ask whether to review.
+4. **Review.** A subagent with a fresh context reviews the implementation (below). Never review your own code in this conversation. Do not ask whether to review.
 5. **Documentation check** (below).
 
 ## Fresh context
 
-Steps 1 and 4 run in a context that has not seen this conversation. Use the first option the harness offers:
+Steps 1 and 4 run in a subagent, a context that has not seen this conversation. Use the first option the harness offers:
 
 1. A subagent or task tool with a new context (Claude Code `Agent`, OpenCode subagent, Codex sub-session).
 2. A different model or CLI (e.g. `codex exec`, `claude -p`), only after the user confirms they trust this repo for that CLI. Such a CLI loads the repo's own config and hooks without asking.
@@ -71,7 +71,7 @@ Reply in one screen or less:
 
 ## Review
 
-The reviewer did not write the code, so it catches what the author overlooks.
+The reviewer is a subagent that did not write the code, so it catches what the author overlooks.
 
 **Reviewer prompt**
 
