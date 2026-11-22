@@ -1,6 +1,6 @@
 ---
 name: spec-plan
-description: Write the change plan for one change, with an ADDED/MODIFIED/REMOVED/RENAMED delta summary of spec requirements and scenario IDs on top, then review spec diff and plan automatically in a fresh context until only nitpicks remain. The plan is the input for spec-implement. Use before starting implementation of a change, when the user asks for a plan, implementation plan or plan review, or after a spec was updated.
+description: Write the change plan for one change, with an ADDED/MODIFIED/REMOVED/RENAMED delta summary of spec requirements and scenario IDs on top, then review spec diff and plan automatically in a fresh context until only nitpicks remain. Explores the build approach first, with --explore or when the approach is unclear, by fanning out subagents and merging their findings into options. The plan is the input for spec-implement. Use before starting implementation of a change, when the user asks for a plan, implementation plan or plan review, after a spec was updated, or when the user wants to compare approaches for a change.
 ---
 
 # spec-plan
@@ -12,9 +12,18 @@ The plan describes how one change gets built. The plan is reviewed automatically
 - Under a day of work and one person: a conversation is enough, no written plan.
 - Spikes and prototypes, until the team decides to keep them.
 
+## Explore first?
+
+Decide this before step 1. Explore first in either of these cases:
+
+1. The user passes `--explore`, even when the approach is clear.
+2. The approach is unclear: the user is choosing between several ways to build the change, the change crosses modules with no obvious starting point, or the user asks whether a refactor is worth doing. Tell the user in one line why you explore first.
+
+To explore, read `<spec-write skill>/explore.md` and follow it. It ends either by returning to the steps below or by naming another skill. In every other case, skip that file and continue below.
+
 ## Steps
 
-1. **Gather context as its own step.** Read the spec diff (`git diff $(git merge-base HEAD <default-branch>) -- docs`, plus new files that git does not track yet: `git ls-files --others --exclude-standard -- docs`), the glossary, `docs/architecture.md`, relevant decision records, an exploration summary from `spec-write --explore` (`.speculatius/*-exploration-*.md`) if there is one for this change, and the code you will touch. Do not code yet.
+1. **Gather context as its own step.** Read the spec diff (`git diff $(git merge-base HEAD <default-branch>) -- docs`, plus new files that git does not track yet: `git ls-files --others --exclude-standard -- docs`), the glossary, `docs/architecture.md`, relevant decision records, an exploration summary (`.speculatius/*-exploration-*.md`) if there is one for this change, and the code you will touch. Do not code yet.
 2. **Propose first.** Write the plan from your own understanding before the user suggests an approach. If the user already suggested one, still state your reading of the problem first.
 3. **Write the plan** using the structure below to `.speculatius/plan.md`. First make sure `.speculatius/` is in the root `.gitignore`. If a plan from another change is still there, ask before overwriting it. Copying it into a PR or ticket is optional and up to the user. Never put it in `docs/`.
 4. **Review automatically** (below). Do not ask whether to review; do not write code until the verdict is READY.
