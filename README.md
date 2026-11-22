@@ -20,8 +20,7 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 
 | Skill | Call it when | What you get |
 | --- | --- | --- |
-| `spec-write` | You want to add or change a feature, or write down how an existing one behaves. Also when you have a rough idea, an unclear problem or several possible directions | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear. With `--explore`, or when the idea is not yet a clear capability, it explores first: subagents examine the idea per module and per hypothesis, including conflicting ones, and their findings are merged into options with trade-offs and an exploration summary in `.speculatius/`. As its last action it continues with `spec-plan`: directly with `--plan`, otherwise after asking you |
-| `spec-plan` | The spec is ready and you are about to start coding | A plan of how to build the change in `.speculatius/plan.md`, checked by a second agent before any code is written. With `--explore`, or when the approach is unclear, it explores first in the same way as `spec-write` |
+| `spec-write` | You want to add or change a feature, write down how an existing one behaves, or plan a change before coding. Also when you have a rough idea, an unclear problem or several possible directions | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear. Two optional steps frame the spec. **Exploration** at the start, with `--explore` or when the idea is not yet a clear capability: subagents examine the idea per module and per hypothesis, including conflicting ones, and their findings are merged into options with trade-offs and an exploration summary in `.speculatius/`. **Plan** at the end, with `--plan` or after asking you: a plan of how to build the change in `.speculatius/plan.md`, checked by a second agent before any code is written |
 | `spec-implement` (optional) | The plan is reviewed and you want the change built | The change, built in a fixed order: an architecture draft, failing tests, the implementation and a review by a second agent. It ends with a check whether a decision record or `docs/architecture.md` needs an update, and deletes the plan |
 | `spec-decision` | You make a technical choice that is hard to undo later, such as a database or a framework | A one-page record of the decision, the alternatives and why they lost, in `docs/decisions/` |
 | `spec-check` | You finished a change and want to know the specs are in order | A list of specs that are malformed or too long, and of examples without a test, shown in the chat. No file is written |
@@ -30,17 +29,21 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 ## Workflow
 
 ```
-spec-write               →  spec-plan + review  →  spec-implement         →  spec-check  →  human review  →  merge
-(exploration if the         (fresh-context        (architecture draft,       (CI)
- idea is unclear or          review loop)          failing tests @AREA-NNN,
- --explore, interview,                             implementation,
- behavior changes only)                            fresh-context review,
-                                                   documentation check)
+spec-write                                   →  spec-implement         →  spec-check  →  human review  →  merge
+(1. exploration, optional: --explore            (architecture draft,       (CI)
+    or the idea is unclear                       failing tests @AREA-NNN,
+ 2. interview and spec, behavior                 implementation,
+    changes only                                 fresh-context review,
+ 3. plan + fresh-context review,                 documentation check)
+    optional: --plan or on request)
 ```
 
-`spec-write` is the entry point for every idea, clear or rough. When the idea is not yet a clear capability, or when you pass `--explore`, it explores first: it fans out subagents and merges their findings into a gitignored exploration summary. When the chosen direction changes observable behavior, it continues with the interview and the spec in the same call. For every other direction it stops and names the next skill: `spec-decision`, `spec-plan`, or none.
+`spec-write` is the entry point for every idea, clear or rough. The spec is its core, and two optional steps frame it:
 
-Refactors and other changes without observable behavior change start at `spec-plan`. `spec-plan` explores in the same way when you pass `--explore` or the approach is unclear, and continues with the plan when the chosen direction changes no observable behavior. Tiny changes skip the written plan.
+- **Exploration, at the start.** When the idea is not yet a clear capability, or when you pass `--explore`, `spec-write` fans out subagents and merges their findings into a gitignored exploration summary. When the chosen direction changes observable behavior, it continues with the interview and the spec in the same call. A direction without observable behavior change continues with the plan. A hard-to-reverse technical choice ends with a pointer to `spec-decision`.
+- **Plan, at the end.** With `--plan`, `spec-write` continues with the plan and its review after the spec is written. Without the flag, it asks you as its last action.
+
+Refactors and other changes without observable behavior change skip the spec: `spec-write` goes straight to the plan. Tiny changes skip the written plan.
 
 `spec-implement` is optional. You are free to build the change with any tool or workflow you like; the plan in `.speculatius/plan.md` is plain markdown. In that case, update `docs/architecture.md` and delete the plan yourself when the change is done.
 
