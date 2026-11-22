@@ -92,7 +92,7 @@ Verdict: READY (nitpicks only) or REVISE.
 **Loop**
 
 1. Fix BLOCKER and MAJOR findings yourself. A finding in the spec goes back to `spec-write`.
-2. Re-run with a new fresh context. Stop at READY, or after 3 rounds; then hand the remaining findings to the user.
+2. Re-run with a new subagent. Stop at READY, or after 3 rounds; then hand the remaining findings to the user.
 3. Report in a few lines: rounds run, what changed, remaining nitpicks.
 
 ## Documentation check
