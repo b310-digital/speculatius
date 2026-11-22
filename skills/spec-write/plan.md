@@ -1,11 +1,8 @@
----
-name: spec-plan
-description: Write the change plan for one change, with an ADDED/MODIFIED/REMOVED/RENAMED delta summary of spec requirements and scenario IDs on top, then review spec diff and plan automatically in a fresh context until only nitpicks remain. The plan is the input for spec-implement. Use before starting implementation of a change, when the user asks for a plan, implementation plan or plan review, or after a spec was updated.
----
-
-# spec-plan
+# Plan
 
 The plan describes how one change gets built. The plan is reviewed automatically before coding. `spec-implement` builds the change from it.
+
+`spec-write` reads this file only when it plans: the user passed `--plan`, the user agreed to continue with the plan, or the request is a plan-only request (see "Plan only?" and "After writing" in `SKILL.md`).
 
 ## When to skip
 
@@ -14,11 +11,11 @@ The plan describes how one change gets built. The plan is reviewed automatically
 
 ## Steps
 
-1. **Gather context as its own step.** Read the spec diff (`git diff $(git merge-base HEAD <default-branch>) -- docs`, plus new files that git does not track yet: `git ls-files --others --exclude-standard -- docs`), the glossary, `docs/architecture.md`, relevant decision records, an exploration summary from `spec-explore` (`.speculatius/*-exploration-*.md`) if there is one for this change, and the code you will touch. Do not code yet.
+1. **Gather context as its own step.** Read the spec diff (`git diff $(git merge-base HEAD <default-branch>) -- docs`, plus new files that git does not track yet: `git ls-files --others --exclude-standard -- docs`), the glossary, `docs/architecture.md`, relevant decision records, an exploration summary (`.speculatius/*-exploration-*.md`) if there is one for this change, and the code you will touch. Do not code yet.
 2. **Propose first.** Write the plan from your own understanding before the user suggests an approach. If the user already suggested one, still state your reading of the problem first.
 3. **Write the plan** using the structure below to `.speculatius/plan.md`. First make sure `.speculatius/` is in the root `.gitignore`. If a plan from another change is still there, ask before overwriting it. Copying it into a PR or ticket is optional and up to the user. Never put it in `docs/`.
 4. **Review automatically** (below). Do not ask whether to review; do not write code until the verdict is READY.
-5. **Hand over.** The skill ends at the reviewed plan. Name `spec-implement` as the next step.
+5. **Hand over.** `spec-write` ends at the reviewed plan. Name `spec-implement` as the next step.
 
 ## Plan structure
 
@@ -53,7 +50,7 @@ The plan describes how one change gets built. The plan is reviewed automatically
 
 ## Rules
 
-- A behavior change without a spec diff is incomplete. If the Delta is non-empty and `docs/specs/` has no diff, stop and run `spec-write` first.
+- A behavior change without a spec diff is incomplete. If the Delta is non-empty and `docs/specs/` has no diff, stop and write the spec first, as `SKILL.md` describes.
 - Choose the cheapest test layer that proves each scenario.
 - Keep the plan as short as the change allows. A file-level list is fine here because the plan does not outlive the change.
 
@@ -96,7 +93,7 @@ Reply in three parts:
 **Loop**
 
 1. Compare the explain-back with the plan. A wrong explain-back is a BLOCKER: the plan or spec is unclear.
-2. Fix BLOCKER and MAJOR findings in the plan yourself. Findings in the spec go back through `spec-write`, and the user approves the change.
+2. Fix BLOCKER and MAJOR findings in the plan yourself. Findings in the spec go back through the spec steps in `SKILL.md`, and the user approves the change.
 3. Re-run with a new fresh context. Stop at READY, or after 3 rounds; then hand the remaining findings to the user.
 4. Report in a few lines: rounds run, what changed, remaining nitpicks.
 

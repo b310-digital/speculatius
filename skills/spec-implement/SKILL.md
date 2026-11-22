@@ -1,6 +1,6 @@
 ---
 name: spec-implement
-description: Builds one change from its reviewed plan, tests first. Drafts the architecture in a subagent, commits failing tests, implements until they pass, has a second subagent review the result, then checks the docs and deletes the plan. Use when .speculatius/plan.md is reviewed and the user asks to implement, build or code the change, or asks what comes after spec-plan.
+description: Builds one change from its reviewed plan, tests first. Drafts the architecture in a subagent, commits failing tests, implements until they pass, has a second subagent review the result, then checks the docs and deletes the plan. Use when .speculatius/plan.md is reviewed and the user asks to implement, build or code the change, or asks what comes after the plan.
 ---
 
 # spec-implement
@@ -9,7 +9,7 @@ The skill takes the reviewed plan and builds the change in a fixed order: archit
 
 ## Before starting
 
-Stop and point the user to `spec-plan` when one of these holds:
+Stop and point the user to `spec-write --plan` when one of these holds:
 
 - `.speculatius/plan.md` does not exist.
 - The plan's `## Open questions` section has an entry.
@@ -102,6 +102,6 @@ Decide both questions and name both answers to the user, each with one sentence 
 - **Decision record:** does the change contain a choice that is expensive to undo (structure, dependency, interface, data storage)? If yes, it needs a new record through `spec-decision`.
 - **Architecture doc:** do the components, the data flow or the boundaries in `docs/architecture.md` still match the code?
 
-Ask the user to agree to these changes and to the deletion of the plan, then make the changes. Write the record with `spec-decision`. Edit `docs/architecture.md` in place and keep it to about two screens; if it is missing, create it from `architecture-template.md` in the `spec-plan` skill folder. Add new domain terms to the glossary in the user's wording.
+Ask the user to agree to these changes and to the deletion of the plan, then make the changes. Write the record with `spec-decision`. Edit `docs/architecture.md` in place and keep it to about two screens; if it is missing, create it from `architecture-template.md` in the `spec-write` skill folder. Add new domain terms to the glossary in the user's wording.
 
 Then delete `.speculatius/plan.md`. The change is ready for `spec-check` and the human review.

@@ -15,7 +15,7 @@ No for: reversible choices. Decide and move on. Say so to the user instead of wr
 ## New record
 
 1. Create `docs/decisions/` if missing. Next number: highest `NNNN` in `docs/decisions/` + 1 (`0001` for the first), zero-padded to four digits. Title in kebab-case: `0008-use-event-store.md`.
-2. Fill `template.md` from this folder. If `spec-explore` left an exploration summary for this decision (`.speculatius/*-exploration-*.md`), take the alternatives and their reasons from it. One decision, one page (~60 lines) maximum.
+2. Fill `template.md` from this folder. If `spec-write --explore` left an exploration summary for this decision (`.speculatius/*-exploration-*.md`), take the alternatives and their reasons from it. One decision, one page (~60 lines) maximum.
 3. Alternatives considered: at least one, each with the concrete reason it lost.
 4. Consequences: good and bad. A record with only good consequences is incomplete.
 5. Update `docs/architecture.md` if the decision changes current structure, linking to the record.
@@ -28,7 +28,7 @@ Never rewrite an existing record's content. Instead:
 2. In the old record change only the status line: `Status: Superseded by [0012](0012-title.md)`.
 3. Update `docs/architecture.md` to the new current state.
 
-Allowed edits to an existing record: status, superseded-by links, typos. `spec-check` and the `spec-plan` review flag other edits.
+Allowed edits to an existing record: status, superseded-by links, typos. `spec-check` and the plan review of `spec-write` flag other edits.
 
 ## Reading
 
