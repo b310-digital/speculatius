@@ -2,6 +2,8 @@
 
 Agent skills for a short, enforced documentation process: living capability specs with executable scenarios, a lean decision log, one glossary, and plans that die at merge.
 
+> **Beta.** Speculatius is early work and may contain errors. Review what the skills and the checker produce before you rely on it.
+
 ## The idea
 
 Agents read every file in a repo and treat it as true. Stale or sprawling documents mislead them. This process therefore uses few documents, limits their size, and gives each a clear lifespan.
