@@ -1,11 +1,11 @@
 ---
 name: spec-plan
-description: Write the change plan for one change, with an ADDED/MODIFIED/REMOVED/RENAMED delta summary of spec requirements and scenario IDs on top, then review spec diff and plan automatically in a fresh context until only nitpicks remain. Use when starting implementation of a change, when the user asks for a plan, implementation plan or plan review, or after a spec was updated.
+description: Write the change plan for one change, with an ADDED/MODIFIED/REMOVED/RENAMED delta summary of spec requirements and scenario IDs on top, then review spec diff and plan automatically in a fresh context until only nitpicks remain. The plan is the input for spec-implement. Use before starting implementation of a change, when the user asks for a plan, implementation plan or plan review, or after a spec was updated.
 ---
 
 # spec-plan
 
-The plan describes how one change gets built. The plan is reviewed automatically before coding and deleted when the change is done.
+The plan describes how one change gets built. The plan is reviewed automatically before coding. `spec-implement` builds the change from it.
 
 ## When to skip
 
@@ -18,7 +18,7 @@ The plan describes how one change gets built. The plan is reviewed automatically
 2. **Propose first.** Write the plan from your own understanding before the user suggests an approach. If the user already suggested one, still state your reading of the problem first.
 3. **Write the plan** using the structure below to `.speculatius/plan.md`. First make sure `.speculatius/` is in the root `.gitignore`. If a plan from another change is still there, ask before overwriting it. Copying it into a PR or ticket is optional and up to the user. Never put it in `docs/`.
 4. **Review automatically** (below). Do not ask whether to review; do not write code until the verdict is READY.
-5. **When the change is done:** update `docs/architecture.md` so it matches the code again (create it from `architecture-template.md` in this folder if missing; keep it to about two screens). Anything else worth keeping goes into a new decision record (`spec-decision`), new terms into the glossary. Then delete `.speculatius/plan.md`.
+5. **Hand over.** The skill ends at the reviewed plan. Name `spec-implement` as the next step.
 
 ## Plan structure
 
@@ -55,7 +55,7 @@ The plan describes how one change gets built. The plan is reviewed automatically
 
 - A behavior change without a spec diff is incomplete. If the Delta is non-empty and `docs/specs/` has no diff, stop and run `spec-write` first.
 - Choose the cheapest test layer that proves each scenario.
-- Keep the plan as short as the change allows. A file-level list is fine here because it is deleted with the change.
+- Keep the plan as short as the change allows. A file-level list is fine here because the plan does not outlive the change.
 
 ## Review
 
