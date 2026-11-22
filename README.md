@@ -22,7 +22,7 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 | --- | --- | --- |
 | `spec-write` | You want to add or change a feature, or write down how an existing one behaves | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear |
 | `spec-plan` | The spec is ready and you are about to start coding | A plan of how to build the change in `.speculatius/plan.md`, checked by a second agent before any code is written |
-| `spec-implement` | The plan is reviewed and you want the change built | The change, built in a fixed order: an architecture draft, failing tests, the implementation and a review by a second agent. It ends with a check whether a decision record or `docs/architecture.md` needs an update, and deletes the plan |
+| `spec-implement` (optional) | The plan is reviewed and you want the change built | The change, built in a fixed order: an architecture draft, failing tests, the implementation and a review by a second agent. It ends with a check whether a decision record or `docs/architecture.md` needs an update, and deletes the plan |
 | `spec-decision` | You make a technical choice that is hard to undo later, such as a database or a framework | A one-page record of the decision, the alternatives and why they lost, in `docs/decisions/` |
 | `spec-check` | You finished a change and want to know the specs are in order | A list of specs that are malformed or too long, and of examples without a test, shown in the chat. No file is written |
 | `spec-drift` | You doubt that the docs still match the code, for example before a release | A report of every place where specs, docs and code disagree, in `.speculatius/drift-report.md`. You decide what to fix |
@@ -39,6 +39,8 @@ spec-write   →  spec-plan + review  →  spec-implement         →  spec-chec
 ```
 
 Refactors and other changes without observable behavior change start at `spec-plan`. Tiny changes skip the written plan.
+
+`spec-implement` is optional. You are free to build the change with any tool or workflow you like; the plan in `.speculatius/plan.md` is plain markdown. In that case, update `docs/architecture.md` and delete the plan yourself when the change is done.
 
 ## What it produces in your repo
 
