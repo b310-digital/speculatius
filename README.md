@@ -1,63 +1,115 @@
 # 🍪 Speculatius
 
-Discover what your app actually does and reconcile it with your [OpenSpec](https://github.com/Fission-AI/OpenSpec) specs.
+Agent skills for a short, enforced documentation process: living capability specs with executable scenarios, a lean decision log, one glossary, and plans that die at merge.
 
-Speculatius uses the [Playwright MCP](https://github.com/microsoft/playwright-mcp) to explore your running application through the browser, generates behavioral specs from what it observes, diffs them against your existing OpenSpec source-of-truth specs, and creates change proposals for anything that's drifted, missing, or undocumented.
+## The idea
 
-It can be used to backfill specs for a brownfield application or to detect spec drift in an existing one.
+Agents read every file in a repo and treat it as true. Stale or sprawling documents mislead them. This process therefore uses few documents, limits their size, and gives each a clear lifespan.
 
-## Install (Claude Code)
+- **Write intent down before building.** A change to observable behavior starts with the spec, not the code.
+- **Small documents or none.** Every artifact has a size budget; over budget means split.
+- **Intent apart from implementation.** Specs describe behavior from the user's view. Technical choices go to the architecture doc and decision records.
+- **The truth is executable.** Each scenario has a stable ID, and a test is tagged with that ID. The scenario text is written only in the spec.
+- **Declared lifespan.** Specs, glossary and architecture doc are living and always current. Decision records are append-only, so rejected options stay visible. The change plan is deleted when the change is done.
 
-```bash
-# 1. Copy commands into your project
-cp -r commands/claude-code/speculatius .claude/commands/speculatius
+Agents may draft scenarios, and a human approves each one. Refactors and tiny changes need no spec. Reversible choices need no decision record.
 
-# 2. Run init (sets up .speculatius/, .gitignore, Playwright MCP)
-/speculatius:init
-```
+## Skills
+
+| Skill | Call it when | What you get |
+| --- | --- | --- |
+| `spec-write` | You want to add or change a feature, or write down how an existing one behaves | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear |
+| `spec-plan` | The spec is ready and you are about to start coding | A plan of how to build the change in `.speculatius/plan.md`, checked by a second agent before any code is written. The plan is deleted when the change is done; `docs/architecture.md` is updated |
+| `spec-decision` | You make a technical choice that is hard to undo later, such as a database or a framework | A one-page record of the decision, the alternatives and why they lost, in `docs/decisions/` |
+| `spec-check` | You finished a change and want to know the specs are in order | A list of specs that are malformed or too long, and of examples without a test, shown in the chat. No file is written |
+| `spec-drift` | You doubt that the docs still match the code, for example before a release | A report of every place where specs, docs and code disagree, in `.speculatius/drift-report.md`. You decide what to fix |
 
 ## Workflow
 
 ```
-/speculatius:init                     One-time setup: .speculatius/, gitignore, Playwright MCP
-       ↓
-/speculatius:explore <url>            Walk the app, produce sitemap + behavioral specs
-       ↓
-   review .speculatius/specs/         Spot-check accuracy, fix capability folder names
-       ↓
-/speculatius:diff                     Compare explored specs vs openspec/specs/
-       ↓
-   review .speculatius/diff-report.md Pick which drifts/gaps to act on
-       ↓
-/speculatius:reconcile                Generate OpenSpec change proposals (/opsx:propose)
-       ↓
-/opsx:archive                         Standard OpenSpec from here
+spec-write   →  spec-plan + review  →  failing tests  →  implement  →  spec-check  →  human review  →  merge
+(interview,      (fresh-context        (@AREA-NNN)       (fresh        (CI)
+ behavior         review loop)                            session)
+ changes only)
 ```
 
-## What it produces
+Refactors and other changes without observable behavior change start at `spec-plan`. Tiny changes skip the written plan.
+
+## What it produces in your repo
 
 ```
-.speculatius/                    ← gitignored, regenerable
-├── config.yaml                  ← Playwright MCP integration settings
-├── sitemap.md                   ← Every route discovered + what was missed
-├── specs/
-│   ├── auth/spec.md             ← Behavioral spec per capability (OpenSpec-compatible)
-│   ├── dashboard/spec.md
-│   └── ...
-└── diff-report.md               ← Structured diff: aligned, drifted, new, missing, underspecified
+AGENTS.md                         # ~20 lines: pointers + rules
+docs/
+  glossary.md                     # one line per domain term (an existing glossary is reused)
+  architecture.md                 # living current-state overview
+  decisions/0007-event-store.md   # append-only decision records
+  specs/billing-retries.md        # one capability per file
+  specs/.spec-config.yaml         # last scenario ID per area
+tests/…                           # tests tagged @BILL-003
+.speculatius/                     # gitignored scratch: drift reports, plan drafts
 ```
 
-Change proposals land in `openspec/changes/` via the standard `/opsx:propose` workflow.
+## Glossary
 
-## Requirements
+The skills read your glossary; they do not own it. `spec-write` uses the one your repo has and only creates a small `docs/glossary.md` if there is none. Recommendations:
 
-- [OpenSpec](https://github.com/Fission-AI/OpenSpec) initialized in your project
-- [Playwright MCP](https://github.com/microsoft/playwright-mcp) (configured during `/speculatius:init`)
-- Your app running locally
+- Its only purpose is to define the domain language. Code, file names, IDs, rules and notes stay out.
+- One line per term: the term and a plain-language definition.
+- One word per concept. Name a rejected synonym once in the definition ("Not 'client'.") instead of listing both.
+- Use the same words in specs, tests and code (types, modules, events).
+- Add a new term in the same change that first uses it.
+- Changing what a term means affects every spec that uses it, so review it like code.
 
-## Comparison
+## Install
 
-[spec-gen](https://github.com/clay-good/spec-gen) reads your code and generates specs for what the code could do. Speculatius explores your running app and generates specs for what it actually does — the same observable behaviors your functional specs describe.
+Skills follow the [Agent Skills](https://agentskills.io) format (`skills/<name>/SKILL.md`), so any harness that reads that format works.
+
+**Claude Code (plugin)**
+
+```bash
+/plugin marketplace add b310-digital/speculatius
+```
+
+```bash
+/plugin install speculatius@speculatius
+```
+
+**Any harness (copy)**
+
+```bash
+git clone https://github.com/b310-digital/speculatius /tmp/speculatius
+```
+
+```bash
+cp -r /tmp/speculatius/skills/* <skills-dir>/
+```
+
+Common project skill directories (check your harness docs, these move):
+
+| Harness | Directory |
+| --- | --- |
+| Claude Code | `.claude/skills/` |
+| Codex | `.agents/skills/` |
+| OpenCode | `.opencode/skills/` (also reads `.claude/skills/`) |
+| Antigravity | `.agent/skills/` |
+
+No setup step: skills create missing folders and files (`docs/…`, `AGENTS.md` lines) the first time they need them. For an existing app, ask `spec-write` to spec one existing capability at a time.
+
+## The check script
+
+`skills/spec-check/scripts/check.mjs` is optional and has zero dependencies (Node ≥ 18). Without Node, the `spec-check` skill does the same checks by reading the files.
+
+```bash
+node skills/spec-check/scripts/check.mjs <repo-root>
+```
+
+The `spec-check` skill can copy it into your repo and add a GitHub Actions workflow.
+
+## Development
+
+```bash
+npm test
+```
 
 ## License
 

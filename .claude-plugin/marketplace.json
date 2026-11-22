@@ -1,0 +1,11 @@
+{
+  "name": "speculatius",
+  "owner": { "name": "b310 digital" },
+  "plugins": [
+    {
+      "name": "speculatius",
+      "source": "./",
+      "description": "Agent skills for a lean spec and documentation process."
+    }
+  ]
+}
