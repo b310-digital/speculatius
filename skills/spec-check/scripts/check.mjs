@@ -34,16 +34,18 @@ const MALFORMED_STEP = /^\s*([-*+]|\d+\.)\s+\W*(given|when|then|and|but)\b/i;
 // WHERE (optional feature) or IF (unwanted event).
 const EARS_START = /^(The|WHEN|WHILE|WHERE|IF)\b/;
 
-// An issue is { level, line, msg }. Line 0 means the issue is about a folder, not a line in a file.
+// An issue: { level: 'error', line: 14, msg: 'scenario BILL-003 has no THEN' }.
+// Line 0 means the issue is about a folder, not a line in a file.
 const error = (line, msg) => ({ level: 'error', line, msg });
 const warning = (line, msg) => ({ level: 'warning', line, msg });
 
-// Splits a file into lines. Accepts LF and CRLF, and does not count the final newline as a line.
+// 'a\r\nb\n' → ['a', 'b']
 function splitLines(text) {
   return text.replace(/\r?\n$/, '').split(/\r?\n/);
 }
 
-// 'ok', 'missing' or 'symlink' for root/dir. Every segment is checked, so a symlinked docs/ is caught too.
+// dirState(root, 'docs/specs') → 'ok', 'missing' or 'symlink'
+// Every segment is checked, so a symlinked docs/ is caught too.
 function dirState(root, dir) {
   let path = root;
   for (const segment of dir.split('/')) {
@@ -60,7 +62,7 @@ function dirState(root, dir) {
   return 'ok';
 }
 
-// Regular *.md files below root/dir, relative to root.
+// markdownFiles(root, 'docs/specs') → ['docs/specs/billing-retries.md', 'docs/specs/auth/index.md']
 // Symlinks are neither files nor directories here, so they are skipped.
 function markdownFiles(root, dir) {
   const entries = readdirSync(join(root, dir), { withFileTypes: true });
@@ -71,7 +73,13 @@ function markdownFiles(root, dir) {
   });
 }
 
-// Reads a spec into its sections, requirements and scenarios. It only groups lines; the check functions judge them.
+// Groups the lines of a spec by requirement and scenario. The check functions judge them.
+//
+//   ## Purpose                          sections:     Set { 'purpose' }
+//   ### Requirement: Retry              requirements: [{ name: 'Retry', line: 2, level: 3, scenarios: 1,
+//   The service SHALL retry once.                        lines: ['The service SHALL retry once.'] }]
+//   #### Scenario: BILL-001 Retry       scenarios:    [{ id: 'BILL-001', line: 4, level: 4, inRequirement: true,
+//   - **WHEN** a charge fails                            lines: ['- **WHEN** a charge fails'] }]
 //
 // 1. Lines inside code blocks are dropped, so an example in a block is not counted as a real requirement or scenario.
 // 2. A heading that starts with "Requirement:" opens a requirement, one that starts with "Scenario:" opens a scenario.
@@ -117,8 +125,8 @@ export function parseSpec(text) {
   return spec;
 }
 
-// Returns the lines outside fenced code blocks as { number, text }, with number the 1-based line number in the file.
-// openFence is the line of a code block that is still open at the end of the file, else 0.
+// ['a', '```', 'b', '```', 'c'] → { lines: [{ number: 1, text: 'a' }, { number: 5, text: 'c' }], openFence: 0 }
+// ['a', '```', 'b']           → { lines: [{ number: 1, text: 'a' }], openFence: 2 }
 // A fence closes on a bare line of the same character that is at least as long as the opening one.
 function withoutCodeBlocks(allLines) {
   const lines = [];
@@ -145,26 +153,31 @@ function withoutCodeBlocks(allLines) {
   return { lines, openFence: fence ? openedAt : 0 };
 }
 
-// Returns { level, title } for a heading line, else null.
+// '### Requirement: Retry' → { level: 3, title: 'Requirement: Retry' }
+// 'plain text'             → null
 function parseHeading(line) {
   const { hashes, title } = line.match(HEADING)?.groups ?? {};
   return hashes ? { level: hashes.length, title } : null;
 }
 
-// lines are the lines below the heading, up to the first scenario. scenarios counts the scenarios below it.
+// '### Requirement: Retry' on line 12 → { name: 'Retry', line: 12, level: 3, lines: [], scenarios: 0 }
+// The parser adds the lines below the heading, up to the first scenario, and counts the scenarios.
 function newRequirement({ level, title }, line) {
   const name = title.slice('Requirement:'.length).trim();
   return { name, line, level, lines: [], scenarios: 0 };
 }
 
-// id is null when the heading has none. lines are the lines below the heading.
+// '#### Scenario: BILL-003 Retry' on line 14 → { id: 'BILL-003', line: 14, level: 4, inRequirement: true, lines: [] }
+// '#### Scenario: Retry'                     → id: null
+// The parser adds the lines below the heading.
 function newScenario({ level, title }, line, requirement) {
   const id = title.match(SCENARIO_ID)?.groups.id ?? null;
   return { id, line, level, inRequirement: requirement !== null, lines: [] };
 }
 
-// The requirement statement: the first paragraph below the heading, joined into one line.
-// It ends at the first blank line, so a rationale paragraph after it is not checked.
+// The requirement statement is the first paragraph below the heading, so a rationale paragraph after it is not checked.
+// lines ['WHEN a charge fails,', 'the service SHALL retry.', '', 'Rationale.']
+// → 'WHEN a charge fails, the service SHALL retry.'
 function statementOf(requirement) {
   const trimmed = requirement.lines.map((line) => line.trim());
   const start = trimmed.findIndex((line) => line !== '');
@@ -173,9 +186,10 @@ function statementOf(requirement) {
   return trimmed.slice(start, end === -1 ? undefined : end).join(' ');
 }
 
-// Counts the steps of a scenario per keyword.
-// AND and BUT count toward the keyword before them, so "THEN, AND" gives two THEN steps.
-// stray counts AND or BUT before any keyword. malformed counts lines that read like a step but are not written as one.
+// Counts the steps of a scenario. AND and BUT count toward the keyword before them.
+// ['- **WHEN** a charge fails', '- **THEN** it is retried', '- **AND** it is logged'] → WHEN: 1, THEN: 2
+// ['- **AND** it is logged']  → stray: 1, because no keyword comes before the AND
+// ['- when a charge fails']   → malformed: 1, because the line reads like a step but is not written as one
 function countSteps(lines) {
   const steps = { GIVEN: 0, WHEN: 0, THEN: 0, stray: 0, malformed: 0 };
   let current = null; // the GIVEN, WHEN or THEN that a following AND or BUT continues
@@ -248,7 +262,8 @@ function checkRequirement(requirement) {
 // Checks one scenario.
 // - The heading is at level 4, carries an ID and is below a requirement.
 // - There is exactly one WHEN step, because two triggers are two scenarios, and at least one THEN step.
-// - Every line that reads like a step is written as one, and no AND or BUT comes before the first keyword.
+// - Every line that reads like a step is written as one.
+// - No AND or BUT comes before the first keyword.
 // - More GIVEN or THEN steps than MAX allows give a warning.
 function checkScenario(scenario) {
   const name = `scenario ${scenario.id ?? '(no ID)'}`;
@@ -290,7 +305,7 @@ function checkDecisionBudget(text) {
 }
 
 // Reports a scenario ID that an earlier scenario already uses, in this file or in one read before it.
-// firstUse maps each scenario ID to the "file:line" of its first use. It is shared across all specs and updated here.
+// firstUse is shared across all specs and updated here: Map { 'BILL-003' → 'docs/specs/billing-retries.md:14' }
 function checkUniqueIds(file, spec, firstUse) {
   const issues = [];
   for (const { id, line } of spec.scenarios) {
@@ -302,8 +317,9 @@ function checkUniqueIds(file, spec, firstUse) {
 }
 
 // Checks every spec below root/docs/specs and every decision record below root/docs/decisions.
-// Returns the issues with their position, the counts, and ok. ok is false when there is an error,
-// or with strict any issue at all. Reads files only; prints nothing.
+// Reads files only; prints nothing. ok is false when there is an error, or with strict any issue at all.
+// → { ok: false, errors: 1, warnings: 0, specs: 3, scenarios: 9, decisions: 2,
+//     issues: [{ level: 'error', line: 14, msg: '…', at: 'docs/specs/billing-retries.md:14' }] }
 export function run(root, { strict = false } = {}) {
   const issues = [];
   const firstUse = new Map();
@@ -345,7 +361,9 @@ export function run(root, { strict = false } = {}) {
   return { ok, issues, errors, warnings, specs: specs.length, scenarios, decisions: decisions.length };
 }
 
-// Returns { root, strict } for valid arguments, else null.
+// ['my-repo', '--strict'] → { root: 'my-repo', strict: true }
+// []                      → { root: '.', strict: false }
+// ['--bogus'] or two roots → null
 function parseCli(args) {
   try {
     const { values, positionals } = parseArgs({
