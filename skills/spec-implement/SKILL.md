@@ -18,7 +18,7 @@ This skill changes no spec. A gap or an error in the spec, found at any step, st
 
 ## ZEN principles
 
-The Zen of Python, applied to any language. The architecture step and the review step check against this list:
+A selection from the [Zen of Python](https://peps.python.org/pep-0020/) by Tim Peters, applied to any language. The architecture step and the review step check against this list:
 
 1. Simple is better than complex.
 2. Explicit is better than implicit.
