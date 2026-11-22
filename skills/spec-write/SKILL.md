@@ -1,6 +1,6 @@
 ---
 name: spec-write
-description: Write or update a living capability spec in docs/specs/ through a short interview, with EARS requirements and Given/When/Then scenarios that carry stable IDs. Explores a rough idea first, with --explore or when the capability is unclear, by fanning out subagents and merging their findings into options. Use before any change to observable behavior, when the user asks to spec, specify or describe a feature or capability, add or change a requirement or scenario, document existing behavior, or when a spec is over budget and needs splitting. Also use when the user has a vague idea, an unclear problem or several possible directions, asks to explore, brainstorm, think through or compare approaches, or asks whether something is worth building.
+description: Write or update a living capability spec in docs/specs/ through a short interview, with EARS requirements and Given/When/Then scenarios that carry stable IDs. Explores a rough idea first, with --explore or when the capability is unclear, by fanning out subagents and merging their findings into options. Continues with the change plan afterwards, with --plan or after asking the user. Use before any change to observable behavior, when the user asks to spec, specify or describe a feature or capability, add or change a requirement or scenario, document existing behavior, or when a spec is over budget and needs splitting. Also use when the user has a vague idea, an unclear problem or several possible directions, asks to explore, brainstorm, think through or compare approaches, or asks whether something is worth building.
 ---
 
 # spec-write
@@ -88,3 +88,7 @@ Use `template.md` in this folder. Exact anchors:
 1. Run the checker if Node is available: `node <spec-check skill>/scripts/check.mjs <repo-root>`, as described in `spec-check`.
 2. Show the user the delta as `ADDED` / `MODIFIED` / `REMOVED` / `RENAMED` requirements and scenario IDs.
 3. State plainly that a human must approve every scenario before tests are written. Do not write the linked tests in the same step unless the user approved the scenarios.
+4. Continue with the plan, as the last action:
+   - The user passed `--plan`: read `<spec-plan skill>/SKILL.md` and follow it in the same call, without asking.
+   - Otherwise: ask the user whether to continue with the plan now. On yes, read `<spec-plan skill>/SKILL.md` and follow it in the same call. On no, name `spec-plan` as the next step and stop.
+   - Skip this step when `## Open questions` is non-empty, and say which questions block the plan.
