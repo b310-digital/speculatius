@@ -1,11 +1,20 @@
 ---
 name: spec-write
-description: Write or update a living capability spec in docs/specs/ through a short interview, with EARS requirements and Given/When/Then scenarios that carry stable IDs. Use before any change to observable behavior, when the user asks to spec, specify or describe a feature or capability, add or change a requirement or scenario, document existing behavior, or when a spec is over budget and needs splitting.
+description: Write or update a living capability spec in docs/specs/ through a short interview, with EARS requirements and Given/When/Then scenarios that carry stable IDs. Explores a rough idea first, with --explore or when the capability is unclear, by fanning out subagents and merging their findings into options. Use before any change to observable behavior, when the user asks to spec, specify or describe a feature or capability, add or change a requirement or scenario, document existing behavior, or when a spec is over budget and needs splitting. Also use when the user has a vague idea, an unclear problem or several possible directions, asks to explore, brainstorm, think through or compare approaches, or asks whether something is worth building.
 ---
 
 # spec-write
 
 A spec is a non-technical description of one capability: why it exists, what it must do, and examples that prove it. It describes the system as it is on main.
+
+## Explore first?
+
+Decide this before anything else, and before the first-run setup. Explore first in either of these cases:
+
+1. The user passes `--explore`, even when the request names a clear capability.
+2. The capability is unclear: the user is choosing between directions, cannot name the capability, or asks whether the idea is worth building. Tell the user in one line why you explore first.
+
+To explore, read `explore.md` in this folder and follow it. It ends either by returning here or by naming another skill. In every other case, skip `explore.md` and continue below.
 
 ## First run in a repo
 
@@ -29,12 +38,11 @@ Tell the user which files were created.
 
 Ask only what is needed to write the spec, without wearing the user out.
 
-- **Look before asking.** Answer what you can from code, existing specs, the glossary and the conversation, including an exploration summary from `spec-explore` (`.speculatius/*-exploration-*.md`) if there is one for this idea. Never ask what the repo already tells you; state it as an assumption instead.
+- **Look before asking.** Answer what you can from code, existing specs, the glossary and the conversation, including an exploration summary (`.speculatius/*-exploration-*.md`) if there is one for this idea. Never ask what the repo already tells you; state it as an assumption instead.
 - **Ask the biggest gap first:** purpose, non-goals, triggers and failure behavior, concrete scenario values, terms.
 - **One question per turn**, at most three if they are tightly related. Offer a recommended answer or 2–4 options, so the user can reply with one word.
 - **Stop** when nothing blocks writing, when the user says enough, or after 8 questions. Anything still open goes under `## Open questions`; it must be resolved before implementation, not now.
 - **No interview** when the request is already clear. Say so and write the spec.
-- **No capability yet?** If the user is still choosing between directions or cannot name the capability, suggest `spec-explore` first. It is optional; continue with the interview if the user prefers.
 - Do not ask about implementation (data structures, endpoints, UI layout). That belongs in `spec-plan`.
 
 ## Existing behavior

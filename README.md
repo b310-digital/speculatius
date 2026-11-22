@@ -20,8 +20,7 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 
 | Skill | Call it when | What you get |
 | --- | --- | --- |
-| `spec-explore` (optional) | You have a rough idea, an unclear problem or several possible directions, and no spec yet | Subagents explore the idea per module and per hypothesis, including conflicting ones. Their findings are merged into options with trade-offs and open questions, an exploration summary in `.speculatius/`, and the next skill to call. No spec, plan or code is written |
-| `spec-write` | You want to add or change a feature, or write down how an existing one behaves | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear |
+| `spec-write` | You want to add or change a feature, or write down how an existing one behaves. Also when you have a rough idea, an unclear problem or several possible directions | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear. With `--explore`, or when the idea is not yet a clear capability, it explores first: subagents examine the idea per module and per hypothesis, including conflicting ones, and their findings are merged into options with trade-offs and an exploration summary in `.speculatius/` |
 | `spec-plan` | The spec is ready and you are about to start coding | A plan of how to build the change in `.speculatius/plan.md`, checked by a second agent before any code is written |
 | `spec-implement` (optional) | The plan is reviewed and you want the change built | The change, built in a fixed order: an architecture draft, failing tests, the implementation and a review by a second agent. It ends with a check whether a decision record or `docs/architecture.md` needs an update, and deletes the plan |
 | `spec-decision` | You make a technical choice that is hard to undo later, such as a database or a framework | A one-page record of the decision, the alternatives and why they lost, in `docs/decisions/` |
@@ -31,15 +30,15 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 ## Workflow
 
 ```
-spec-explore  →  spec-write   →  spec-plan + review  →  spec-implement         →  spec-check  →  human review  →  merge
-(optional,        (interview,      (fresh-context        (architecture draft,       (CI)
- idea still        behavior         review loop)          failing tests @AREA-NNN,
- unclear)          changes only)                          implementation,
-                                                          fresh-context review,
-                                                          documentation check)
+spec-write               →  spec-plan + review  →  spec-implement         →  spec-check  →  human review  →  merge
+(exploration if the         (fresh-context        (architecture draft,       (CI)
+ idea is unclear or          review loop)          failing tests @AREA-NNN,
+ --explore, interview,                             implementation,
+ behavior changes only)                            fresh-context review,
+                                                   documentation check)
 ```
 
-`spec-explore` is optional. Start with `spec-write` when you already know which capability you want; call `spec-explore` first when the idea is not yet a clear capability. It fans out subagents, merges their findings into a gitignored exploration summary, and ends by naming the next skill: `spec-write`, `spec-decision`, `spec-plan`, or none.
+`spec-write` is the entry point for every idea, clear or rough. When the idea is not yet a clear capability, or when you pass `--explore`, it explores first: it fans out subagents and merges their findings into a gitignored exploration summary. When the chosen direction changes observable behavior, it continues with the interview and the spec in the same call. For every other direction it stops and names the next skill: `spec-decision`, `spec-plan`, or none.
 
 Refactors and other changes without observable behavior change start at `spec-plan`. Tiny changes skip the written plan.
 

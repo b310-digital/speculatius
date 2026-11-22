@@ -14,7 +14,7 @@ The plan describes how one change gets built. The plan is reviewed automatically
 
 ## Steps
 
-1. **Gather context as its own step.** Read the spec diff (`git diff $(git merge-base HEAD <default-branch>) -- docs`, plus new files that git does not track yet: `git ls-files --others --exclude-standard -- docs`), the glossary, `docs/architecture.md`, relevant decision records, an exploration summary from `spec-explore` (`.speculatius/*-exploration-*.md`) if there is one for this change, and the code you will touch. Do not code yet.
+1. **Gather context as its own step.** Read the spec diff (`git diff $(git merge-base HEAD <default-branch>) -- docs`, plus new files that git does not track yet: `git ls-files --others --exclude-standard -- docs`), the glossary, `docs/architecture.md`, relevant decision records, an exploration summary from `spec-write --explore` (`.speculatius/*-exploration-*.md`) if there is one for this change, and the code you will touch. Do not code yet.
 2. **Propose first.** Write the plan from your own understanding before the user suggests an approach. If the user already suggested one, still state your reading of the problem first.
 3. **Write the plan** using the structure below to `.speculatius/plan.md`. First make sure `.speculatius/` is in the root `.gitignore`. If a plan from another change is still there, ask before overwriting it. Copying it into a PR or ticket is optional and up to the user. Never put it in `docs/`.
 4. **Review automatically** (below). Do not ask whether to review; do not write code until the verdict is READY.
