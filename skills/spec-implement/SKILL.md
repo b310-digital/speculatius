@@ -36,13 +36,9 @@ A selection from the [Zen of Python](https://peps.python.org/pep-0020/) by Tim P
 4. **Review.** A subagent with a fresh context reviews the implementation (below). Never review your own code in this conversation. Do not ask whether to review.
 5. **Documentation check** (below).
 
-## Fresh context
+## Subagents
 
-Steps 1 and 4 run in a subagent, a context that has not seen this conversation. Use the first option the harness offers:
-
-1. A subagent or task tool with a new context (Claude Code `Agent`, OpenCode subagent, Codex sub-session).
-2. A different model or CLI (e.g. `codex exec`, `claude -p`), only after the user confirms they trust this repo for that CLI. Such a CLI loads the repo's own config and hooks without asking.
-3. Otherwise ask the user to paste the prompt into a new session and return the reply.
+Steps 1 and 4 each spawn a subagent with a new context, one that has not seen this conversation.
 
 Before sending, fill in the placeholders: `<base-sha>` is the merge-base SHA (`git merge-base HEAD <default-branch>`), `<zen principles>` is the list above, the untracked files come from `git ls-files --others --exclude-standard`, and `<test command>` is the repo's documented test command. If the repo documents none, ask the user. Pass paths, not summaries. Never pass your conclusions or the chat history.
 
