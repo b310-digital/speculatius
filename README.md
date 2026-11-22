@@ -97,7 +97,7 @@ No setup step: skills create missing folders and files (`docs/…`, `AGENTS.md` 
 
 ## The check script
 
-`skills/spec-check/scripts/check.mjs` is optional and has zero dependencies (Node ≥ 18). Without Node, the `spec-check` skill does the same checks by reading the files.
+`skills/spec-check/scripts/check.mjs` is optional and has zero dependencies (Node ≥ 24). Without Node, the `spec-check` skill does the same checks by reading the files.
 
 ```bash
 node skills/spec-check/scripts/check.mjs <repo-root>

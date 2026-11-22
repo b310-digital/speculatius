@@ -83,6 +83,13 @@ const spec = (body) => `# Billing Retries\n\n## Purpose\np\n\n## Non-goals\n- n\
 const REQ = '### Requirement: Retry\nWHEN a charge fails, the billing service SHALL retry once.\n';
 const SCN = '#### Scenario: BILL-001 Retry\n- **WHEN** a charge fails\n- **THEN** it is retried\n';
 
+const errorsFor = (body) => {
+  const root = repo({ 'docs/specs/billing-retries.md': spec(body) });
+  const m = msgs(run(root));
+  rmSync(root, { recursive: true });
+  return m;
+};
+
 test('missing docs/specs fails instead of passing empty', () => {
   const root = repo({ 'README.md': 'x' });
   const res = run(root);
@@ -106,6 +113,18 @@ test('symlinked docs/specs is refused', () => {
 
 test('trailing newline is not counted as a line', () => {
   assert.equal(parseSpec('a\nb\n').lines, 2);
+});
+
+test('CRLF line endings are read like LF', () => {
+  const body = REQ + '\n```md\n### Requirement: Example\n```\n\n' + SCN;
+  assert.equal(errorsFor(body.replaceAll('\n', '\r\n')), '');
+  assert.equal(parseSpec('a\r\nb\r\n').lines, 2);
+});
+
+test('files are read in a fixed order', () => {
+  const root = repo({ 'docs/specs/b-second.md': spec(REQ + '\n' + SCN), 'docs/specs/a-first.md': spec(REQ + '\n' + SCN) });
+  assert.match(msgs(run(root)), /first in docs\/specs\/a-first\.md:14/);
+  rmSync(root, { recursive: true });
 });
 
 test('code blocks are ignored', () => {
@@ -152,13 +171,6 @@ test('scenario count includes duplicates; section names ignore case', () => {
   assert.doesNotMatch(msgs(res), /missing "## Non-goals"/);
   rmSync(root, { recursive: true });
 });
-
-const errorsFor = (body) => {
-  const root = repo({ 'docs/specs/billing-retries.md': spec(body) });
-  const m = msgs(run(root));
-  rmSync(root, { recursive: true });
-  return m;
-};
 
 test('unclosed or inline-backtick fences do not hide the rest of the spec', () => {
   assert.match(errorsFor(REQ + '\n```\nexample\n\n' + SCN), /code block is never closed/);

@@ -1,227 +1,304 @@
 #!/usr/bin/env node
 // speculatius spec-check: format gates for docs/specs and docs/decisions.
-// Reads only *.md files in those two folders. Symlinks are never followed. Node >= 18.
-// Usage: node check.mjs [ROOT] [--strict]    Exit code 1 on errors (or warnings with --strict), 2 on bad arguments.
+// Reads only *.md files in those two folders. Symlinks are never followed. Node >= 24.
+// Usage: node check.mjs [ROOT] [--strict]
+// Exit code 1 on errors (or warnings with --strict), 2 on bad arguments.
 
-import { readFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
-import { join, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { parseArgs } from 'node:util';
+
+const USAGE = 'Usage: node check.mjs [ROOT] [--strict]';
 
 // Size budgets. Exceeding one gives a warning, which fails the run only with --strict.
 const MAX = { specLines: 150, scenarios: 12, given: 3, then: 2, decisionLines: 60 };
+
 // Level-2 headings every spec needs. Compared without regard to case.
 const SECTIONS = ['Purpose', 'Non-goals', 'Requirements'];
+
+// A kebab-case capability name that starts with a letter, such as billing-retries.md.
+const FILE_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.md$/;
+// A heading line such as "### Requirement: Retry".
+const HEADING = /^ {0,3}(?<hashes>#+)\s+(?<title>.*)/;
+// A heading that looks like an anchor but is not one, such as "### Requirement 1: Retry".
+const NEAR_MISS_ANCHOR = /^(requirement|scenario)\b/i;
+// A code fence: 3 or more backticks or tildes, then an optional info string.
+const FENCE = /^ {0,3}(?<mark>`{3,}|~{3,})(?<rest>.*)$/;
+// A scenario heading with an ID such as BILL-003.
+const SCENARIO_ID = /^Scenario:\s*(?<id>[A-Z][A-Z0-9]*-\d{3,})(?:\s|$)/;
+// A step: a bullet whose first word is a bold keyword, such as "- **WHEN** a charge fails".
+const STEP = /^\s*[-*]\s+\*\*(?<keyword>GIVEN|WHEN|THEN|AND|BUT)\*\*/;
+// A list item that reads like a step but is not written as one, such as "- when a charge fails".
+const MALFORMED_STEP = /^\s*([-*+]|\d+\.)\s+\W*(given|when|then|and|but)\b/i;
+// How a requirement statement may start: The (always), WHEN (event), WHILE (state),
+// WHERE (optional feature) or IF (unwanted event).
+const EARS_START = /^(The|WHEN|WHILE|WHERE|IF)\b/;
 
 // An issue is { level, line, msg }. Line 0 means the issue is about a folder, not a line in a file.
 const error = (line, msg) => ({ level: 'error', line, msg });
 const warning = (line, msg) => ({ level: 'warning', line, msg });
 
+// Splits a file into lines. Accepts LF and CRLF, and does not count the final newline as a line.
+function splitLines(text) {
+  return text.replace(/\r?\n$/, '').split(/\r?\n/);
+}
+
 // 'ok', 'missing' or 'symlink' for root/dir. Every segment is checked, so a symlinked docs/ is caught too.
 function dirState(root, dir) {
   let path = root;
-  for (const part of dir.split('/')) {
-    path = join(path, part);
-    let st;
-    try { st = lstatSync(path); } catch { return 'missing'; }
-    if (st.isSymbolicLink()) return 'symlink';
-    if (!st.isDirectory()) return 'missing';
+  for (const segment of dir.split('/')) {
+    path = join(path, segment);
+    let stats;
+    try {
+      stats = lstatSync(path);
+    } catch {
+      return 'missing'; // also when root itself is a file
+    }
+    if (stats.isSymbolicLink()) return 'symlink';
+    if (!stats.isDirectory()) return 'missing';
   }
   return 'ok';
 }
 
-// Regular *.md files below root/dir, relative to root. Symlinks are neither files nor dirs here, so they are skipped.
-function markdown(root, dir) {
+// Regular *.md files below root/dir, relative to root.
+// Symlinks are neither files nor directories here, so they are skipped.
+function markdownFiles(root, dir) {
   const entries = readdirSync(join(root, dir), { withFileTypes: true });
-  return entries.flatMap((e) => {
-    const p = join(dir, e.name);
-    if (e.isDirectory()) return markdown(root, p);
-    return e.isFile() && e.name.endsWith('.md') ? [p] : [];
+  return entries.flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return markdownFiles(root, path);
+    return entry.isFile() && entry.name.endsWith('.md') ? [path] : [];
   });
 }
 
-// Reads a spec into its sections, requirements and scenarios. It only collects facts; the check functions judge them.
+// Reads a spec into its sections, requirements and scenarios. It only groups lines; the check functions judge them.
 //
 // 1. Lines inside code blocks are dropped, so an example in a block is not counted as a real requirement or scenario.
 // 2. A heading that starts with "Requirement:" opens a requirement, one that starts with "Scenario:" opens a scenario.
 //    A scenario belongs to the requirement that is open at that point.
 // 3. Any other heading closes the open scenario. At level 1 to 3 it also closes the open requirement.
-// 4. A line below a scenario heading is counted as a step. Any other line below a requirement heading
-//    is added to the requirement statement.
+// 4. A line below a scenario heading belongs to the scenario.
+//    Any other line below a requirement heading belongs to the requirement.
 export function parseSpec(text) {
-  const all = text.replace(/\n$/, '').split('\n');
-  const { lines, openFence } = withoutCodeBlocks(all);
-  const spec = { lines: all.length, sections: new Set(), requirements: [], scenarios: [], badAnchors: [], openFence };
-  let req = null;
-  let scn = null;
+  const allLines = splitLines(text);
+  const { lines, openFence } = withoutCodeBlocks(allLines);
+  const spec = {
+    lines: allLines.length,
+    sections: new Set(),
+    requirements: [],
+    scenarios: [],
+    badAnchors: [],
+    openFence,
+  };
+  let requirement = null;
+  let scenario = null;
 
-  for (const { n, text: line } of lines) {
+  for (const { number, text: line } of lines) {
     const heading = parseHeading(line);
     if (!heading) {
-      if (scn) countStep(scn, line);
-      else if (req) addStatementLine(req, line);
+      (scenario ?? requirement)?.lines.push(line);
       continue;
     }
-    scn = null;
+    scenario = null;
     if (heading.title.startsWith('Requirement:')) {
-      req = newRequirement(heading, n);
-      spec.requirements.push(req);
+      requirement = newRequirement(heading, number);
+      spec.requirements.push(requirement);
     } else if (heading.title.startsWith('Scenario:')) {
-      scn = newScenario(heading, n, req);
-      spec.scenarios.push(scn);
-      if (req) req.scenarios++;
+      scenario = newScenario(heading, number, requirement);
+      spec.scenarios.push(scenario);
+      if (requirement) requirement.scenarios++;
     } else {
-      // A near miss such as "### Requirement 1: …" is not parsed, so it is recorded for an error.
-      if (/^(requirement|scenario)\b/i.test(heading.title)) spec.badAnchors.push(n);
+      // The parser does not see a near miss as an anchor, so it is recorded for an error.
+      if (NEAR_MISS_ANCHOR.test(heading.title)) spec.badAnchors.push(number);
       if (heading.level === 2) spec.sections.add(heading.title.trim().toLowerCase());
-      if (heading.level <= 3) req = null;
+      if (heading.level <= 3) requirement = null;
     }
   }
   return spec;
 }
 
-// Returns the lines outside fenced code blocks as { n, text }, with n the 1-based line number in the file.
+// Returns the lines outside fenced code blocks as { number, text }, with number the 1-based line number in the file.
 // openFence is the line of a code block that is still open at the end of the file, else 0.
-// A fence is 3 or more backticks or tildes. It closes on a bare line of the same character that is at least as long.
-function withoutCodeBlocks(all) {
+// A fence closes on a bare line of the same character that is at least as long as the opening one.
+function withoutCodeBlocks(allLines) {
   const lines = [];
-  let fence = null; // opening marker of the current code block, e.g. '```' or '~~~~'
+  let fence = null; // opening marker of the current code block, such as '```' or '~~~~'
   let openedAt = 0;
-  all.forEach((text, i) => {
-    const [, mark, rest] = text.match(/^ {0,3}(`{3,}|~{3,})(.*)$/) ?? [];
+
+  allLines.forEach((text, index) => {
+    const number = index + 1;
+    const { mark, rest } = text.match(FENCE)?.groups ?? {};
     if (fence) {
-      if (mark && mark[0] === fence[0] && mark.length >= fence.length && !rest.trim()) fence = null;
-    } else if (mark && !(mark[0] === '`' && rest.includes('`'))) {
-      // A backtick line with another backtick after the marker is inline code, not a fence.
+      const closes = mark?.[0] === fence[0] && mark.length >= fence.length && !rest.trim();
+      if (closes) fence = null;
+      return;
+    }
+    // A backtick line with another backtick after the marker is inline code, not a fence.
+    const opens = mark && !(mark[0] === '`' && rest.includes('`'));
+    if (opens) {
       fence = mark;
-      openedAt = i + 1;
+      openedAt = number;
     } else {
-      lines.push({ n: i + 1, text });
+      lines.push({ number, text });
     }
   });
   return { lines, openFence: fence ? openedAt : 0 };
 }
 
-// Returns { level, title } for a heading line such as "### Requirement: Retry", else null.
+// Returns { level, title } for a heading line, else null.
 function parseHeading(line) {
-  const [, hashes, title] = line.match(/^ {0,3}(#+)\s+(.*)/) ?? [];
+  const { hashes, title } = line.match(HEADING)?.groups ?? {};
   return hashes ? { level: hashes.length, title } : null;
 }
 
-// A requirement starts with its name and an empty statement. scenarios counts the scenarios below it.
+// lines are the lines below the heading, up to the first scenario. scenarios counts the scenarios below it.
 function newRequirement({ level, title }, line) {
-  return { name: title.slice('Requirement:'.length).trim(), line, level, text: '', done: false, scenarios: 0 };
+  const name = title.slice('Requirement:'.length).trim();
+  return { name, line, level, lines: [], scenarios: 0 };
 }
 
-// A scenario starts with its ID, or null when the heading has none, and zero steps of every kind.
-function newScenario({ level, title }, line, req) {
-  const id = title.match(/^Scenario:\s*([A-Z][A-Z0-9]*-\d{3,})(\s|$)/)?.[1] ?? null;
-  return { id, line, level, inRequirement: !!req, GIVEN: 0, WHEN: 0, THEN: 0, stray: 0, malformed: 0, last: null };
+// id is null when the heading has none. lines are the lines below the heading.
+function newScenario({ level, title }, line, requirement) {
+  const id = title.match(SCENARIO_ID)?.groups.id ?? null;
+  return { id, line, level, inRequirement: requirement !== null, lines: [] };
 }
 
-// Adds a line to the requirement statement. The statement is the first paragraph below the heading
-// and ends at the first blank line, so a rationale paragraph after it is not checked.
-function addStatementLine(req, line) {
-  if (req.done) return;
-  if (line.trim()) req.text = `${req.text} ${line.trim()}`.trim();
-  else if (req.text) req.done = true;
+// The requirement statement: the first paragraph below the heading, joined into one line.
+// It ends at the first blank line, so a rationale paragraph after it is not checked.
+function statementOf(requirement) {
+  const trimmed = requirement.lines.map((line) => line.trim());
+  const start = trimmed.findIndex((line) => line !== '');
+  if (start === -1) return '';
+  const end = trimmed.indexOf('', start);
+  return trimmed.slice(start, end === -1 ? undefined : end).join(' ');
 }
 
-// Counts one line of a scenario as a step. A step is a bullet whose first word is a bold keyword: "- **WHEN** …".
+// Counts the steps of a scenario per keyword.
 // AND and BUT count toward the keyword before them, so "THEN, AND" gives two THEN steps.
-// An AND or BUT before any keyword is counted as stray.
-function countStep(scn, line) {
-  const kw = line.match(/^\s*[-*]\s+\*\*(GIVEN|WHEN|THEN|AND|BUT)\*\*/)?.[1];
-  if (!kw) {
-    // A list item that reads like a step but is not "- **KEYWORD**" would otherwise go uncounted.
-    if (/^\s*([-*+]|\d+\.)\s+\W*(given|when|then|and|but)\b/i.test(line)) scn.malformed++;
-    return;
+// stray counts AND or BUT before any keyword. malformed counts lines that read like a step but are not written as one.
+function countSteps(lines) {
+  const steps = { GIVEN: 0, WHEN: 0, THEN: 0, stray: 0, malformed: 0 };
+  let current = null; // the GIVEN, WHEN or THEN that a following AND or BUT continues
+
+  for (const line of lines) {
+    const keyword = line.match(STEP)?.groups.keyword;
+    if (!keyword) {
+      if (MALFORMED_STEP.test(line)) steps.malformed++;
+      continue;
+    }
+    if (keyword !== 'AND' && keyword !== 'BUT') current = keyword;
+    if (current) steps[current]++;
+    else steps.stray++;
   }
-  if (kw !== 'AND' && kw !== 'BUT') scn.last = kw;
-  if (scn.last) scn[scn.last]++;
-  else scn.stray++;
+  return steps;
 }
 
 // Checks that concern the file as a whole:
-// - The file name is a kebab-case capability name that starts with a letter, such as billing-retries.md.
-// - The spec has the sections Purpose, Non-goals and Requirements. It also has at least one requirement.
+// - The file name is a kebab-case capability name.
+// - The spec has every section in SECTIONS and at least one requirement.
 //   An index.md without requirements is the overview of a split capability and is exempt from both.
 // - Every code block is closed, because the parser skips everything after an open one.
-// - No heading is a near miss of the two anchors, such as "### Requirement 1: …". The parser does not see those.
+// - No heading is a near miss of the two anchors.
 function checkFile(file, spec) {
   const name = basename(file);
-  const out = [];
-  if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*\.md$/.test(name)) out.push(error(1, 'file name must be a kebab-case capability name, no numbers or dates first'));
+  const issues = [];
+
+  if (!FILE_NAME.test(name)) {
+    issues.push(error(1, 'file name must be a kebab-case capability name, no numbers or dates first'));
+  }
   const isFolderIndex = name === 'index.md' && spec.requirements.length === 0;
   if (!isFolderIndex) {
-    for (const s of SECTIONS) if (!spec.sections.has(s.toLowerCase())) out.push(error(1, `missing "## ${s}" section`));
-    if (!spec.requirements.length) out.push(error(1, 'no "### Requirement: <name>" found'));
+    for (const section of SECTIONS) {
+      if (!spec.sections.has(section.toLowerCase())) issues.push(error(1, `missing "## ${section}" section`));
+    }
+    if (spec.requirements.length === 0) issues.push(error(1, 'no "### Requirement: <name>" found'));
   }
-  if (spec.openFence) out.push(error(spec.openFence, 'code block is never closed; the rest of the file is not checked'));
-  for (const n of spec.badAnchors) out.push(error(n, 'heading must read exactly "### Requirement: <name>" or "#### Scenario: <ID> <name>"'));
-  return out;
+  if (spec.openFence) {
+    issues.push(error(spec.openFence, 'code block is never closed; the rest of the file is not checked'));
+  }
+  for (const line of spec.badAnchors) {
+    issues.push(error(line, 'heading must read exactly "### Requirement: <name>" or "#### Scenario: <ID> <name>"'));
+  }
+  return issues;
 }
 
-// Checks one requirement. Only its statement is checked, which is the first paragraph below the heading.
+// Checks one requirement. Only its statement is checked, see statementOf.
 // - The heading is at level 3 and at least one scenario follows it.
 // - The statement contains SHALL or MUST in capitals and neither "should" nor "may".
-// - The statement starts with an EARS keyword: The (always), WHEN (event), WHILE (state),
-//   WHERE (optional feature) or IF (unwanted event). A statement that starts with IF also needs THEN.
-function checkRequirement(r) {
-  const name = `requirement "${r.name}"`;
-  const weak = r.text.match(/\b(should|may)\b/)?.[1];
-  const out = [];
-  if (r.level !== 3) out.push(error(r.line, '"Requirement:" must be a level-3 heading'));
-  if (!r.scenarios) out.push(error(r.line, `${name} has no scenario`));
-  if (!/\b(SHALL|MUST)\b/.test(r.text)) out.push(error(r.line, `${name} needs SHALL or MUST`));
-  if (weak) out.push(error(r.line, `${name} uses "${weak}"`));
-  if (!/^(The|WHEN|WHILE|WHERE|IF)\b/.test(r.text)) out.push(error(r.line, `${name} must start with an EARS pattern: The / WHEN / WHILE / WHERE / IF…THEN`));
-  else if (r.text.startsWith('IF') && !/\bTHEN\b/.test(r.text)) out.push(error(r.line, `${name} has IF without THEN`));
-  return out;
+// - The statement starts with an EARS keyword. A statement that starts with IF also needs THEN.
+function checkRequirement(requirement) {
+  const name = `requirement "${requirement.name}"`;
+  const statement = statementOf(requirement);
+  const weakWord = statement.match(/\b(should|may)\b/)?.[1];
+  const issues = [];
+  const fail = (msg) => issues.push(error(requirement.line, msg));
+
+  if (requirement.level !== 3) fail('"Requirement:" must be a level-3 heading');
+  if (requirement.scenarios === 0) fail(`${name} has no scenario`);
+  if (!/\b(SHALL|MUST)\b/.test(statement)) fail(`${name} needs SHALL or MUST`);
+  if (weakWord) fail(`${name} uses "${weakWord}"`);
+  if (!EARS_START.test(statement)) {
+    fail(`${name} must start with an EARS pattern: The / WHEN / WHILE / WHERE / IF…THEN`);
+  } else if (statement.startsWith('IF') && !/\bTHEN\b/.test(statement)) {
+    fail(`${name} has IF without THEN`);
+  }
+  return issues;
 }
 
 // Checks one scenario.
-// - The heading is at level 4, carries an ID such as BILL-003 and is below a requirement.
+// - The heading is at level 4, carries an ID and is below a requirement.
 // - There is exactly one WHEN step, because two triggers are two scenarios, and at least one THEN step.
-// - Every line that reads like a step has the form "- **KEYWORD** …", and no AND or BUT comes before the first keyword.
-// - More than 3 GIVEN or 2 THEN steps give a warning.
-function checkScenario(s) {
-  const name = `scenario ${s.id ?? '(no ID)'}`;
-  const out = [];
-  if (s.level !== 4) out.push(error(s.line, '"Scenario:" must be a level-4 heading'));
-  if (!s.id) out.push(error(s.line, 'scenario needs an ID: "#### Scenario: <AREA>-<NNN> <name>"'));
-  if (!s.inRequirement) out.push(error(s.line, `${name} is outside a requirement`));
-  if (s.WHEN !== 1) out.push(error(s.line, `${name} needs exactly one WHEN, found ${s.WHEN}`));
-  if (!s.THEN) out.push(error(s.line, `${name} has no THEN`));
-  if (s.malformed) out.push(error(s.line, `${name} has ${s.malformed} step(s) not written as "- **GIVEN|WHEN|THEN|AND**"`));
-  if (s.stray) out.push(error(s.line, `${name} starts with AND/BUT before any GIVEN, WHEN or THEN`));
-  if (s.GIVEN > MAX.given) out.push(warning(s.line, `${name} has ${s.GIVEN} GIVEN steps, budget ${MAX.given}`));
-  if (s.THEN > MAX.then) out.push(warning(s.line, `${name} has ${s.THEN} THEN steps, budget ${MAX.then}`));
-  return out;
+// - Every line that reads like a step is written as one, and no AND or BUT comes before the first keyword.
+// - More GIVEN or THEN steps than MAX allows give a warning.
+function checkScenario(scenario) {
+  const name = `scenario ${scenario.id ?? '(no ID)'}`;
+  const steps = countSteps(scenario.lines);
+  const issues = [];
+  const fail = (msg) => issues.push(error(scenario.line, msg));
+  const warn = (msg) => issues.push(warning(scenario.line, msg));
+
+  if (scenario.level !== 4) fail('"Scenario:" must be a level-4 heading');
+  if (!scenario.id) fail('scenario needs an ID: "#### Scenario: <AREA>-<NNN> <name>"');
+  if (!scenario.inRequirement) fail(`${name} is outside a requirement`);
+  if (steps.WHEN !== 1) fail(`${name} needs exactly one WHEN, found ${steps.WHEN}`);
+  if (steps.THEN === 0) fail(`${name} has no THEN`);
+  if (steps.malformed) fail(`${name} has ${steps.malformed} step(s) not written as "- **GIVEN|WHEN|THEN|AND**"`);
+  if (steps.stray) fail(`${name} starts with AND/BUT before any GIVEN, WHEN or THEN`);
+  if (steps.GIVEN > MAX.given) warn(`${name} has ${steps.GIVEN} GIVEN steps, budget ${MAX.given}`);
+  if (steps.THEN > MAX.then) warn(`${name} has ${steps.THEN} THEN steps, budget ${MAX.then}`);
+  return issues;
 }
 
-// Warns when a spec is longer than 150 lines or has more than 12 scenarios. Either means the spec describes more than one capability.
+// Warns when a spec exceeds MAX.specLines or MAX.scenarios. Either means the spec describes more than one capability.
 function checkSpecBudget(spec) {
-  const out = [];
-  if (spec.lines > MAX.specLines) out.push(warning(1, `${spec.lines} lines, budget ~${MAX.specLines}: split into a folder with index.md`));
-  if (spec.scenarios.length > MAX.scenarios) out.push(warning(1, `${spec.scenarios.length} scenarios, budget ${MAX.scenarios}`));
-  return out;
+  const issues = [];
+  if (spec.lines > MAX.specLines) {
+    issues.push(warning(1, `${spec.lines} lines, budget ~${MAX.specLines}: split into a folder with index.md`));
+  }
+  if (spec.scenarios.length > MAX.scenarios) {
+    issues.push(warning(1, `${spec.scenarios.length} scenarios, budget ${MAX.scenarios}`));
+  }
+  return issues;
 }
 
-// Warns when a decision record is longer than one page, about 60 lines. Nothing else in a decision record is checked.
+// Warns when a decision record is longer than one page, MAX.decisionLines.
+// Nothing else in a decision record is checked.
 function checkDecisionBudget(text) {
-  const lines = text.replace(/\n$/, '').split('\n').length;
-  return lines > MAX.decisionLines ? [warning(1, `${lines} lines, budget one page (~${MAX.decisionLines})`)] : [];
+  const lines = splitLines(text).length;
+  if (lines <= MAX.decisionLines) return [];
+  return [warning(1, `${lines} lines, budget one page (~${MAX.decisionLines})`)];
 }
 
 // Reports a scenario ID that an earlier scenario already uses, in this file or in one read before it.
-// ids maps each scenario ID to the "file:line" of its first use and is shared across all specs.
-function checkUniqueIds(file, spec, ids) {
-  const out = [];
-  for (const s of spec.scenarios.filter((x) => x.id)) {
-    if (ids.has(s.id)) out.push(error(s.line, `duplicate scenario ID ${s.id}, first in ${ids.get(s.id)}`));
-    else ids.set(s.id, `${file}:${s.line}`);
+// firstUse maps each scenario ID to the "file:line" of its first use. It is shared across all specs and updated here.
+function checkUniqueIds(file, spec, firstUse) {
+  const issues = [];
+  for (const { id, line } of spec.scenarios) {
+    if (!id) continue;
+    if (firstUse.has(id)) issues.push(error(line, `duplicate scenario ID ${id}, first in ${firstUse.get(id)}`));
+    else firstUse.set(id, `${file}:${line}`);
   }
-  return out;
+  return issues;
 }
 
 // Checks every spec below root/docs/specs and every decision record below root/docs/decisions.
@@ -229,21 +306,24 @@ function checkUniqueIds(file, spec, ids) {
 // or with strict any issue at all. Reads files only; prints nothing.
 export function run(root, { strict = false } = {}) {
   const issues = [];
-  const ids = new Map();
-  const report = (file, found) => issues.push(...found.map((x) => ({ ...x, at: x.line ? `${file}:${x.line}` : file })));
+  const firstUse = new Map();
   const read = (file) => readFileSync(join(root, file), 'utf8');
+  const report = (file, found) => {
+    for (const issue of found) issues.push({ ...issue, at: issue.line ? `${file}:${issue.line}` : file });
+  };
 
-  // docs/specs is required, docs/decisions optional. Symlinked folders are refused, so the scan stays inside root.
-  const folder = (dir, required) => {
+  // The *.md files of a folder in a fixed order, so every machine reports the same.
+  // A symlinked folder is refused, so the scan stays inside root.
+  const filesIn = (dir, { required }) => {
     const state = dirState(root, dir);
-    if (state === 'ok') return markdown(root, dir);
+    if (state === 'ok') return markdownFiles(root, dir).toSorted();
     if (state === 'symlink') report(dir, [error(0, `${dir} or a parent folder is a symlink; not read`)]);
     else if (required) report(dir, [error(0, `${dir} not found under ${root}`)]);
     return [];
   };
 
   let scenarios = 0;
-  const specs = folder('docs/specs', true);
+  const specs = filesIn('docs/specs', { required: true });
   for (const file of specs) {
     const spec = parseSpec(read(file));
     scenarios += spec.scenarios.length;
@@ -252,30 +332,50 @@ export function run(root, { strict = false } = {}) {
       ...spec.requirements.flatMap(checkRequirement),
       ...spec.scenarios.flatMap(checkScenario),
       ...checkSpecBudget(spec),
-      ...checkUniqueIds(file, spec, ids),
+      ...checkUniqueIds(file, spec, firstUse),
     ]);
   }
 
-  const decisions = folder('docs/decisions', false);
+  const decisions = filesIn('docs/decisions', { required: false });
   for (const file of decisions) report(file, checkDecisionBudget(read(file)));
 
-  const ok = !issues.some((x) => x.level === 'error' || strict);
-  return { ok, issues, specs: specs.length, scenarios, decisions: decisions.length };
+  const errors = issues.filter((issue) => issue.level === 'error').length;
+  const warnings = issues.length - errors;
+  const ok = errors === 0 && (!strict || warnings === 0);
+  return { ok, issues, errors, warnings, specs: specs.length, scenarios, decisions: decisions.length };
 }
 
-// Command line. Runs only when this file is started directly, not when a test imports it.
-// Both paths are resolved first: argv[1] still contains symlinks and import.meta.url does not, so a plain
-// comparison is false when the script is started through a symlink, and the check would not run.
-if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  const args = process.argv.slice(2);
-  const roots = args.filter((a) => !a.startsWith('--'));
-  if (roots.length > 1 || args.some((a) => a.startsWith('--') && a !== '--strict')) {
-    console.error('Usage: node check.mjs [ROOT] [--strict]');
-    process.exit(2);
+// Returns { root, strict } for valid arguments, else null.
+function parseCli(args) {
+  try {
+    const { values, positionals } = parseArgs({
+      args,
+      options: { strict: { type: 'boolean', default: false } },
+      allowPositionals: true,
+    });
+    if (positionals.length > 1) return null;
+    return { root: positionals[0] ?? '.', strict: values.strict };
+  } catch {
+    return null; // parseArgs throws on an unknown option
   }
-  const res = run(roots[0] ?? '.', { strict: args.includes('--strict') });
-  for (const x of res.issues) console.log(`${x.level === 'error' ? 'ERROR' : 'WARN '} ${x.at}  ${x.msg}`);
-  const errors = res.issues.filter((x) => x.level === 'error').length;
-  console.log(`\n${res.specs} specs, ${res.scenarios} scenarios, ${res.decisions} decisions: ${errors} errors, ${res.issues.length - errors} warnings`);
-  process.exitCode = res.ok ? 0 : 1;
 }
+
+function main() {
+  const cli = parseCli(process.argv.slice(2));
+  if (!cli) {
+    console.error(USAGE);
+    process.exitCode = 2;
+    return;
+  }
+  const result = run(cli.root, { strict: cli.strict });
+  for (const { level, at, msg } of result.issues) {
+    console.log(`${level === 'error' ? 'ERROR' : 'WARN '} ${at}  ${msg}`);
+  }
+  const { specs, scenarios, decisions, errors, warnings } = result;
+  const counts = `${specs} specs, ${scenarios} scenarios, ${decisions} decisions`;
+  console.log(`\n${counts}: ${errors} errors, ${warnings} warnings`);
+  process.exitCode = result.ok ? 0 : 1;
+}
+
+// Runs only when this file is started directly, not when a test imports it.
+if (import.meta.main) main();

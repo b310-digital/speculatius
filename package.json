@@ -9,5 +9,5 @@
     "test": "node --test test/*.test.mjs",
     "check": "node skills/spec-check/scripts/check.mjs"
   },
-  "engines": { "node": ">=18" }
+  "engines": { "node": ">=24" }
 }

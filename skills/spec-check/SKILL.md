@@ -5,7 +5,7 @@ description: Run the spec gates, deterministic format checks on docs/specs and d
 
 # spec-check
 
-## With Node (≥ 18)
+## With Node (≥ 24)
 
 Always run the copy bundled with this skill, with the repo root as an explicit argument:
 
