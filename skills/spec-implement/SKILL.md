@@ -1,6 +1,6 @@
 ---
 name: spec-implement
-description: Build one change from its reviewed plan in a fixed order, an architecture draft by a subagent, failing tests committed before the implementation, a fresh-context review against the draft, the tests and the ZEN principles, and a documentation check that ends with deleting the plan. Use when the plan in .speculatius/plan.md is reviewed and the user asks to implement, build or code the change.
+description: Builds one change from its reviewed plan, tests first. Drafts the architecture in a subagent, commits failing tests, implements until they pass, has a second subagent review the result, then checks the docs and deletes the plan. Use when .speculatius/plan.md is reviewed and the user asks to implement, build or code the change, or asks what comes after spec-plan.
 ---
 
 # spec-implement
