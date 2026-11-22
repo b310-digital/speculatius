@@ -29,11 +29,12 @@ Tell the user which files were created.
 
 Ask only what is needed to write the spec, without wearing the user out.
 
-- **Look before asking.** Answer what you can from code, existing specs, the glossary and the conversation. Never ask what the repo already tells you; state it as an assumption instead.
+- **Look before asking.** Answer what you can from code, existing specs, the glossary and the conversation, including an exploration summary from `spec-explore` (`.speculatius/*-exploration-*.md`) if there is one for this idea. Never ask what the repo already tells you; state it as an assumption instead.
 - **Ask the biggest gap first:** purpose, non-goals, triggers and failure behavior, concrete scenario values, terms.
 - **One question per turn**, at most three if they are tightly related. Offer a recommended answer or 2–4 options, so the user can reply with one word.
 - **Stop** when nothing blocks writing, when the user says enough, or after 8 questions. Anything still open goes under `## Open questions`; it must be resolved before implementation, not now.
 - **No interview** when the request is already clear. Say so and write the spec.
+- **No capability yet?** If the user is still choosing between directions or cannot name the capability, suggest `spec-explore` first. It is optional; continue with the interview if the user prefers.
 - Do not ask about implementation (data structures, endpoints, UI layout). That belongs in `spec-plan`.
 
 ## Existing behavior
