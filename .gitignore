@@ -36,3 +36,5 @@ Thumbs.db
 .env
 .env.prod
 .npmrc
+# Speculatius scratch output
+.speculatius/

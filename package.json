@@ -1,0 +1,13 @@
+{
+  "name": "speculatius",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agent skills for a lean spec and documentation process.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node skills/spec-check/scripts/check.mjs"
+  },
+  "engines": { "node": ">=24" }
+}

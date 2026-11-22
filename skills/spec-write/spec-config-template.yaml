@@ -1,0 +1,5 @@
+# Scenario IDs in docs/specs have the form <AREA>-<NNN>, for example BILL-004.
+# last_scenario_id is the highest number given out so far in each area.
+# Raise it with every new scenario; never lower it, even when a scenario is removed.
+last_scenario_id:
+  <AREA>: 0

@@ -1,0 +1,8 @@
+{
+  "name": "speculatius",
+  "version": "1.0.0",
+  "description": "Agent skills for a lean spec and documentation process: living capability specs with executable scenarios, append-only decisions, one glossary, plans that die at merge.",
+  "license": "MIT",
+  "repository": "https://github.com/b310-digital/speculatius",
+  "skills": "./skills/"
+}
