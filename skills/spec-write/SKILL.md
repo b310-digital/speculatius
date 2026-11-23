@@ -11,7 +11,7 @@ Two optional steps frame the spec, each in its own file in this folder: the expl
 
 ## Explore first?
 
-Decide this before anything else, and before the first-run setup. Explore first in either of these cases:
+Decide this before anything else, and before the setup with `spec-init`. Explore first in either of these cases:
 
 1. The user passes `--explore`, even when the request names a clear capability.
 2. The capability is unclear: the user is choosing between directions, cannot name the capability, or asks whether the idea is worth building. Tell the user in one line why you explore first.
@@ -27,15 +27,7 @@ Skip the spec and go straight to `plan.md` in this folder in either of these cas
 
 ## First run in a repo
 
-Create only what is missing; never overwrite:
-
-- `docs/specs/`
-- A glossary: use the one the repo already has (`docs/glossary.md`, `GLOSSARY.md` or similar). Only if there is none, create `docs/glossary.md` from `glossary-template.md` in this folder.
-- `docs/specs/.spec-config.yaml` from `spec-config-template.yaml` in this folder. If specs already exist, set each area's `last_scenario_id` to its highest ID in `docs/specs/`.
-- `.speculatius/` in the root `.gitignore`, so plans and reports are never committed
-- `AGENTS.md`: if missing, create it from `AGENTS-template.md` in this folder. If it exists, add only the missing lines from the template and limit the file to about 20 lines; adjust the glossary path if the repo keeps it elsewhere. If only `CLAUDE.md` exists, add one line pointing to `AGENTS.md`.
-
-Tell the user which files were created.
+If `docs/specs/.spec-config.yaml` or `AGENTS.md` is missing, read the `spec-init` skill and follow it first. It creates the default files and never overwrites.
 
 ## Before writing
 

@@ -20,15 +20,18 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 
 | Skill | Call it when | What you get |
 | --- | --- | --- |
-| `spec-write` | You want to add or change a feature, write down how an existing one behaves, or plan a change before coding. Also when you have a rough idea, an unclear problem or several possible directions | A short spec of what the feature does and why, with examples, in `docs/specs/`. It asks you a few questions first if something is unclear. Two optional steps frame the spec. **Exploration** at the start, with `--explore` or when the idea is not yet a clear capability: subagents examine the idea per module and per hypothesis, including conflicting ones, and their findings are merged into options with trade-offs and an exploration summary in `.speculatius/`. **Plan** at the end, with `--plan` or after asking you: a plan of how to build the change in `.speculatius/plan.md`, checked by a second agent before any code is written |
-| `spec-implement` (optional) | The plan is reviewed and you want the change built | The change, built in a fixed order: an architecture draft, failing tests, the implementation and a review by a second agent. It ends with a check whether a decision record or `docs/architecture.md` needs an update, and deletes the plan |
-| `spec-decision` | You make a technical choice that is hard to undo later, such as a database or a framework | A one-page record of the decision, the alternatives and why they lost, in `docs/decisions/` |
-| `spec-check` | You finished a change and want to know the specs are in order | A list of specs that are malformed or too long, and of examples without a test, shown in the chat. No file is written |
-| `spec-drift` | You doubt that the docs still match the code, for example before a release | A report of every place where specs, docs and code disagree, in `.speculatius/drift-report.md`. You decide what to fix |
+| `spec-init` | You set up a repo for the process | The default files: `AGENTS.md`, glossary, `docs/architecture.md`, `docs/specs/`, `docs/decisions/`. Existing files stay untouched |
+| `spec-write` | You add or change a feature, document an existing one, or have a rough idea | A short spec in `docs/specs/`. `--explore` compares directions first, `--plan` adds a reviewed change plan |
+| `spec-implement` (optional) | The plan is reviewed and you want the change built | The change: failing tests first, then the code, then a review by a second agent |
+| `spec-decision` | You make a technical choice that is hard to undo | A one-page record in `docs/decisions/` with the alternatives and why they lost |
+| `spec-check` | You finished a change | A list of malformed or oversized specs and of scenarios without a test |
+| `spec-drift` | You doubt the docs still match the code | A report of every mismatch in `.speculatius/drift-report.md` |
 
 ## Workflow
 
 ```
+spec-init (once per repo)
+
 spec-write                                   →  spec-implement         →  spec-check  →  human review  →  merge
 (1. exploration, optional: --explore            (architecture draft,       (CI)
     or the idea is unclear                       failing tests @AREA-NNN,
@@ -63,7 +66,7 @@ tests/…                           # tests tagged @BILL-003
 
 ## Glossary
 
-The skills read your glossary; they do not own it. `spec-write` uses the one your repo has and only creates a small `docs/glossary.md` if there is none. Recommendations:
+The skills read your glossary; they do not own it. `spec-init` uses the one your repo has and only creates a small `docs/glossary.md` if there is none. Recommendations:
 
 - Its only purpose is to define the domain language. Code, file names, IDs, rules and notes stay out.
 - One line per term: the term and a plain-language definition.
@@ -105,7 +108,7 @@ Common project skill directories (check your harness docs, these move):
 | OpenCode | `.opencode/skills/` (also reads `.claude/skills/`) |
 | Antigravity | `.agent/skills/` |
 
-No setup step: skills create missing folders and files (`docs/…`, `AGENTS.md` lines) the first time they need them. For an existing app, ask `spec-write` to spec one existing capability at a time.
+Run `spec-init` once per repo to create the default files (`docs/…`, `AGENTS.md`). `spec-write` runs it for you if you skip it. For an existing app, ask `spec-write` to spec one existing capability at a time.
 
 ## The check script
 
