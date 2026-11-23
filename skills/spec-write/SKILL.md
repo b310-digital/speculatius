@@ -32,7 +32,7 @@ Never run `spec-init` yourself; the user decides. Create only what this spec nee
 - `docs/specs/` if the folder is missing.
 - `docs/specs/.spec-config.yaml` if it is missing, with one `last_scenario_id` entry per area. If specs already exist, set each area to its highest ID in `docs/specs/`.
 
-If `AGENTS.md`, the glossary or `docs/architecture.md` is missing, tell the user in one line that `spec-init` creates them, and continue.
+Never create `AGENTS.md`, the glossary or `docs/architecture.md`. If one is missing, tell the user in one line that `spec-init` creates it, and continue.
 
 ## Before writing
 
