@@ -1,6 +1,6 @@
 ---
 name: spec-init
-description: Set up a repo for the spec process by creating the default files from scaffolds - AGENTS.md, docs/glossary.md, docs/architecture.md, docs/specs/ with its scenario ID config, docs/decisions/ and the .speculatius/ gitignore entry. Never overwrites existing files. Use when the user asks to init, set up, bootstrap or scaffold the spec process or the docs structure, or when another spec skill finds the setup missing.
+description: Set up a repo for the spec process by creating the default files from scaffolds - AGENTS.md, docs/glossary.md, docs/architecture.md, docs/specs/ with its scenario ID config, docs/decisions/ and the .speculatius/ gitignore entry. Never overwrites existing files. Use when the user asks to init, set up, bootstrap or scaffold the spec process or the docs structure. Only the user starts it; no other skill runs it.
 ---
 
 # spec-init

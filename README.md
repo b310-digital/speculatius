@@ -108,7 +108,7 @@ Common project skill directories (check your harness docs, these move):
 | OpenCode | `.opencode/skills/` (also reads `.claude/skills/`) |
 | Antigravity | `.agent/skills/` |
 
-Run `spec-init` once per repo to create the default files (`docs/…`, `AGENTS.md`). `spec-write` runs it for you if you skip it. For an existing app, ask `spec-write` to spec one existing capability at a time.
+Run `spec-init` once per repo to create the default files (`docs/…`, `AGENTS.md`). No other skill runs it for you; they only create a folder they need. For an existing app, ask `spec-write` to spec one existing capability at a time.
 
 ## The check script
 
