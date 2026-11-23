@@ -29,16 +29,34 @@ Agents may draft scenarios, and a human approves each one. Refactors and tiny ch
 
 ## Workflow
 
-```
-spec-init (once per repo)
+```mermaid
+flowchart LR
+    init["spec-init<br/>(once per repo)"]
 
-spec-write                                   →  spec-implement         →  spec-check  →  human review  →  merge
-(1. exploration, optional: --explore            (architecture draft,       (CI)
-    or the idea is unclear                       failing tests @AREA-NNN,
- 2. interview and spec, behavior                 implementation,
-    changes only                                 fresh-context review,
- 3. plan + fresh-context review,                 documentation check)
-    optional: --plan or on request)
+    subgraph write["spec-write"]
+        direction TB
+        w1["1. Exploration<br/>optional: --explore or the idea is unclear"]
+        w2["2. Interview and spec<br/>behavior changes only"]
+        w3["3. Plan + fresh-context review<br/>optional: --plan or on request"]
+        w1 --> w2 --> w3
+    end
+
+    subgraph impl["spec-implement (optional)"]
+        direction TB
+        i1["Architecture draft"]
+        i2["Failing tests @AREA-NNN"]
+        i3["Implementation"]
+        i4["Fresh-context review"]
+        i5["Documentation check"]
+        i1 --> i2 --> i3 --> i4 --> i5
+    end
+
+    check["spec-check<br/>(CI)"]
+    review["Human review"]
+    merge["Merge"]
+
+    init -.-> write
+    write --> impl --> check --> review --> merge
 ```
 
 `spec-write` is the entry point for every idea, clear or rough. The spec is its core, and two optional steps frame it:
