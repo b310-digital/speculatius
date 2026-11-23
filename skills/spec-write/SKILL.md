@@ -11,7 +11,7 @@ Two optional steps frame the spec, each in its own file in this folder: the expl
 
 ## Explore first?
 
-Decide this before anything else, and before the first-run setup. Explore first in either of these cases:
+Decide this before anything else, and before creating any folder. Explore first in either of these cases:
 
 1. The user passes `--explore`, even when the request names a clear capability.
 2. The capability is unclear: the user is choosing between directions, cannot name the capability, or asks whether the idea is worth building. Tell the user in one line why you explore first.
@@ -25,21 +25,18 @@ Skip the spec and go straight to `plan.md` in this folder in either of these cas
 1. The change has no observable behavior change, such as a refactor.
 2. The spec for the change is already written, and the user asks for the plan or for a plan review.
 
-## First run in a repo
+## Missing setup
 
-Create only what is missing; never overwrite:
+Never run `spec-init` yourself; the user decides. Create only what this spec needs:
 
-- `docs/specs/`
-- A glossary: use the one the repo already has (`docs/glossary.md`, `GLOSSARY.md` or similar). Only if there is none, create `docs/glossary.md` from `glossary-template.md` in this folder.
-- `docs/specs/.spec-config.yaml` from `spec-config-template.yaml` in this folder. If specs already exist, set each area's `last_scenario_id` to its highest ID in `docs/specs/`.
-- `.speculatius/` in the root `.gitignore`, so plans and reports are never committed
-- `AGENTS.md`: if missing, create it from `AGENTS-template.md` in this folder. If it exists, add only the missing lines from the template and limit the file to about 20 lines; adjust the glossary path if the repo keeps it elsewhere. If only `CLAUDE.md` exists, add one line pointing to `AGENTS.md`.
+- `docs/specs/` if the folder is missing.
+- `docs/specs/.spec-config.yaml` if it is missing, with one `last_scenario_id` entry per area. If specs already exist, set each area to its highest ID in `docs/specs/`.
 
-Tell the user which files were created.
+Never create `AGENTS.md`, the glossary or `docs/architecture.md`. If one is missing, tell the user in one line that `spec-init` creates it, and continue.
 
 ## Before writing
 
-1. Read the glossary, the target spec if it exists, and neighbouring specs to avoid overlap.
+1. Read the glossary if there is one, the target spec if it exists, and neighbouring specs to avoid overlap.
 2. Take the next scenario ID per area from `docs/specs/.spec-config.yaml`: `last_scenario_id` plus one. Write the new number back in the same change. Never reuse an ID and never lower `last_scenario_id`, even when a scenario is removed. A new area prefix (e.g. `BILL`) is agreed with the user and added to the file.
 3. Run the interview below.
 
@@ -90,7 +87,7 @@ Use `template.md` in this folder. Exact anchors:
 
 - Edit in place, never create `-v2` copies. Removed scenarios disappear; their IDs stay retired.
 - Over ~150 lines or 12 scenarios means more than one capability: turn `x.md` into `x/index.md` (family purpose and links, no requirements) plus one file per sub-capability. Each sub-file is a complete spec with its own Purpose, Non-goals and Requirements. Keep scenario IDs unchanged when moving.
-- New domain term? Add it to the glossary in the same change: one line, plain words. The glossary contains term definitions only, never code, IDs or rules. One word per concept; ask the user for the meaning instead of inventing it.
+- New domain term? Add it to the glossary in the same change: one line, plain words. Without a glossary, list the new terms for the user instead. The glossary contains term definitions only, never code, IDs or rules. One word per concept; ask the user for the meaning instead of inventing it.
 
 ## After writing
 

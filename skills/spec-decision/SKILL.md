@@ -18,7 +18,7 @@ No for: reversible choices. Decide and move on. Say so to the user instead of wr
 2. Fill `template.md` from this folder. If `spec-write --explore` left an exploration summary for this decision (`.speculatius/*-exploration-*.md`), take the alternatives and their reasons from it. One decision, one page (~60 lines) maximum.
 3. Alternatives considered: at least one, each with the concrete reason it lost.
 4. Consequences: good and bad. A record with only good consequences is incomplete.
-5. Update `docs/architecture.md` if the decision changes current structure, linking to the record.
+5. Update `docs/architecture.md` if the decision changes current structure, linking to the record. If the file is missing, do not create it; `spec-init` does that.
 
 ## Reversing a decision
 
@@ -26,7 +26,7 @@ Never rewrite an existing record's content. Instead:
 
 1. Write a new record whose Context names the old one and why it no longer applies.
 2. In the old record change only the status line: `Status: Superseded by [0012](0012-title.md)`.
-3. Update `docs/architecture.md` to the new current state.
+3. Update `docs/architecture.md` to the new current state, if the file exists.
 
 Allowed edits to an existing record: status, superseded-by links, typos. `spec-check` and the plan review of `spec-write` flag other edits.
 
